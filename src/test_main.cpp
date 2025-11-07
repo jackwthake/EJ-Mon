@@ -5,14 +5,14 @@
 
 // Display dimensions matching the actual hardware
 
-#include "platform.h"
+#include "platform.hpp"
 #include "can/can_parser.h"
 #include <cstdio>
 #include <cstring>
 
 #include <SDL3/SDL.h>
 
-#include "grapghics/bitmap_font.h"
+#include "graphics/bitmap_font.hpp"
 
 void draw_char_3x5(SDL_Renderer* renderer, char c, int x, int y, int scale) {
   int idx = -1;

@@ -32,6 +32,9 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
   add_executable(ej-mon
     src/test_main.cpp
     src/can/can_parser.cpp
+    src/graphics/gfx.cpp
+    src/graphics/gfx_sdl.cpp
+    src/graphics/framebuffer.cpp
   )
 
   target_link_libraries(ej-mon PRIVATE
