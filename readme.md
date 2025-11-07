@@ -34,3 +34,6 @@ OBD-ii and Can bus interface monitoring device designed specifically for a 2008-
   - Physical size of 110.3mm x 36.77mm
 - **MCP2515 TJA1050 CAN Bus Module**: Decodes CAN Bus data
   - interfaces with esp32 through spi
+- **Buck Converter (12V to 3.3V)**: Power regulation
+  - Steps down 12V vehicle power to 3.3V for the ESP32 and display
+  - Provides stable power delivery from the car's electrical system

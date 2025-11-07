@@ -1,0 +1,29 @@
+{
+  "configurations": [
+    {
+      "name": "Desktop",
+      "compileCommands": "${workspaceFolder}/build-desktop/compile_commands.json",
+      "intelliSenseMode": "linux-gcc-x64",
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "defines": [
+        "PLATFORM_DESKTOP=1",
+        "PLATFORM_ESP32=0"
+      ]
+    },
+    {
+      "name": "ESP32",
+      "compileCommands": "${workspaceFolder}/build-esp32/compile_commands.json",
+      "intelliSenseMode": "linux-gcc-x64",
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "defines": [
+        "PLATFORM_DESKTOP=0",
+        "PLATFORM_ESP32=1"
+      ]
+    }
+  ],
+  "version": 4
+}
