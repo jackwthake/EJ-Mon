@@ -31,6 +31,7 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
   # Main executable - uses test_main.cpp for desktop
   add_executable(ej-mon
     src/test_main.cpp
+    src/can/can_parser.cpp
   )
 
   target_link_libraries(ej-mon PRIVATE
@@ -62,6 +63,7 @@ elseif(TARGET_PLATFORM_UPPER STREQUAL "ESP32")
   # Main executable - uses main.cpp for ESP32
   # add_executable(ej-mon
   #   src/main.cpp
+  #   src/can/can_parser.cpp
   # )
 
   # Define platform macros for ESP32
