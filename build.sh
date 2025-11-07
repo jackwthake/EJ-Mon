@@ -42,7 +42,7 @@ cmake --build . -j$(nproc)
 
 echo ""
 if [ "$TARGET_PLATFORM" = "DESKTOP" ]; then
-  echo "Build complete! Run with: ./$BUILD_DIR/car-mon"
+  echo "Build complete! Run with: ./$BUILD_DIR/ej-mon"
 else
   echo "Build complete! Flash with: cd $BUILD_DIR && make flash"
 fi

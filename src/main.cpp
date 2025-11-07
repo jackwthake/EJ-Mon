@@ -8,7 +8,7 @@
 
 // ESP32 uses app_main() as entry point, not main()
 extern "C" void app_main() {
-  printf("Car-Mon ESP32 starting...\n");
+  printf("EJ-Mon ESP32 starting...\n");
   printf("Display: %dx%d\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
   // TODO: Initialize hardware

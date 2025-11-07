@@ -17,7 +17,7 @@ int test_main(int argc, char* argv[]) {
   }
 
   SDL_Window* window = SDL_CreateWindow(
-    "Car-Mon Simulator",
+    "EJ-Mon Simulator",
     DISPLAY_WIDTH, DISPLAY_HEIGHT,
     SDL_WINDOW_RESIZABLE
   );
@@ -36,7 +36,7 @@ int test_main(int argc, char* argv[]) {
     return 1;
   }
 
-  printf("Car-Mon SDL Simulator started\n");
+  printf("EJ-Mon SDL Simulator started\n");
   printf("Display: %dx%d\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
   bool running = true;

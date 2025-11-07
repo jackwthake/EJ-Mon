@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(car-mon VERSION 0.1.0 LANGUAGES CXX C)
+project(ej-mon VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,27 +29,27 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
   add_subdirectory(third-party/SDL)
 
   # Main executable - uses test_main.cpp for desktop
-  add_executable(car-mon
+  add_executable(ej-mon
     src/test_main.cpp
   )
 
-  target_link_libraries(car-mon PRIVATE
+  target_link_libraries(ej-mon PRIVATE
     SDL3::SDL3-static
   )
 
-  target_include_directories(car-mon PRIVATE
+  target_include_directories(ej-mon PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   )
 
   # Compiler flags for desktop
-  target_compile_options(car-mon PRIVATE
+  target_compile_options(ej-mon PRIVATE
     -Wall
     -Wextra
     -Wpedantic
   )
 
   # Define platform macros
-  target_compile_definitions(car-mon PRIVATE
+  target_compile_definitions(ej-mon PRIVATE
     PLATFORM_DESKTOP=1
     PLATFORM_ESP32=0
   )
@@ -60,12 +60,12 @@ elseif(TARGET_PLATFORM_UPPER STREQUAL "ESP32")
   # This will be added when you have the toolchain set up
 
   # Main executable - uses main.cpp for ESP32
-  # add_executable(car-mon
+  # add_executable(ej-mon
   #   src/main.cpp
   # )
 
   # Define platform macros for ESP32
-  # target_compile_definitions(car-mon PRIVATE
+  # target_compile_definitions(ej-mon PRIVATE
   #   PLATFORM_DESKTOP=0
   #   PLATFORM_ESP32=1
   # )

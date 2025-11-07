@@ -1,5 +1,5 @@
-# Car-Mon 
-OBD-ii and Can bus interface monitoring device designed specifically for a 2008-14 Subaru WRX
+# EJ-Mon
+OBD-II and CAN bus monitoring device designed specifically for 2008-14 Subaru WRX (EJ motor)
 
 ## Basic Features / Characteristics
 - Single din form factor
