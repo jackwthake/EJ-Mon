@@ -15,6 +15,97 @@
 #include <thread>
 #include <SDL3/SDL.h>
 
+//==============================================================================
+// Helper Functions
+//==============================================================================
+
+// Linear interpolation helper
+template<typename T>
+static T lerp(T current, T target, float t) {
+  return current + (target - current) * t;
+}
+
+// Interpolate engine data for smooth animations
+static void interpolate_engine_data(EngineData& interpolated, const EngineData& target, float speed) {
+  // Interpolated values (smooth transitions)
+  interpolated.rpm = (uint16_t)lerp((float)interpolated.rpm, (float)target.rpm, speed);
+  interpolated.throttle = (uint8_t)lerp((float)interpolated.throttle, (float)target.throttle, speed);
+  interpolated.boost_psi = lerp(interpolated.boost_psi, target.boost_psi, speed);
+
+  // Instant updates (no interpolation needed)
+  interpolated.speed = target.speed;
+  interpolated.coolant_temp = target.coolant_temp;
+  interpolated.timing_adv = target.timing_adv;
+  interpolated.knock_count = target.knock_count;
+  interpolated.knock_detected = target.knock_detected;
+  interpolated.overboost = target.overboost;
+}
+
+// Render the gauge display
+static void render_gauges(Graphics* gfx, const EngineData& data) {
+  char value_text[64];
+
+  // Left column - Bar gauges
+  constexpr int max_bar_width = 400;
+  constexpr int bar_height = 30;
+
+  // RPM gauge (0-8000 RPM range)
+  int rpm_width = (data.rpm * max_bar_width) / 8000;
+  if (rpm_width > max_bar_width) rpm_width = max_bar_width;
+
+  gfx->fill_rect(50, 50, max_bar_width, bar_height, Theme::GRAY_DARK);
+  gfx->fill_rect(50, 50, rpm_width, bar_height, Theme::RED);
+
+  snprintf(value_text, sizeof(value_text), "RPM: %u", data.rpm);
+  gfx->draw_text(value_text, 55, 60, 2, Theme::GRAY_LIGHT);
+
+  // Boost gauge (-15 to +20 PSI range)
+  int boost_width = (int)((data.boost_psi + 15.0f) * (max_bar_width / 35.0f));
+  if (boost_width < 0) boost_width = 0;
+  if (boost_width > max_bar_width) boost_width = max_bar_width;
+
+  gfx->fill_rect(50, 100, max_bar_width, bar_height, Theme::GRAY_DARK);
+  gfx->fill_rect(50, 100, boost_width, bar_height, Theme::CYAN);
+
+  snprintf(value_text, sizeof(value_text), "BOOST: %+.1f PSI", data.boost_psi);
+  gfx->draw_text(value_text, 55, 110, 2, Theme::GRAY_LIGHT);
+
+  // Throttle gauge (0-100%)
+  int throttle_width = (data.throttle * max_bar_width) / 100;
+  if (throttle_width > max_bar_width) throttle_width = max_bar_width;
+
+  gfx->fill_rect(50, 150, max_bar_width, bar_height, Theme::GRAY_DARK);
+  gfx->fill_rect(50, 150, throttle_width, bar_height, Theme::GREEN);
+
+  snprintf(value_text, sizeof(value_text), "THROTTLE: %u%%", data.throttle);
+  gfx->draw_text(value_text, 55, 160, 2, Theme::GRAY_LIGHT);
+
+  // Right column - Additional info
+  snprintf(value_text, sizeof(value_text), "SPEED: %u MPH", data.speed);
+  gfx->draw_text(value_text, 480, 50, 2, Theme::GRAY_LIGHT);
+
+  snprintf(value_text, sizeof(value_text), "COOLANT: %dC", data.coolant_temp);
+  gfx->draw_text(value_text, 480, 80, 2, Theme::GRAY_LIGHT);
+
+  snprintf(value_text, sizeof(value_text), "TIMING: %+d", data.timing_adv);
+  gfx->draw_text(value_text, 480, 110, 2, Theme::GRAY_LIGHT);
+
+  // Warning indicators at bottom
+  if (data.knock_detected) {
+    gfx->fill_rect(50, 270, 120, 40, Theme::YELLOW);
+    gfx->draw_text("!KNOCK!", 55, 282, 2, Theme::BLACK);
+  }
+
+  if (data.overboost) {
+    gfx->fill_rect(190, 270, 180, 40, Theme::MAGENTA);
+    gfx->draw_text("!OVERBOOST!", 195, 282, 2, Theme::BLACK);
+  }
+}
+
+//==============================================================================
+// Main Entry Point
+//==============================================================================
+
 int test_main(int /*argc*/, char* /*argv*/[]) {
   printf("EJ-Mon SDL Simulator started\n");
   printf("Display: %dx%d\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
@@ -38,6 +129,8 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
 
   // Initialize engine data
   EngineData engine_data = {};
+  EngineData engine_data_prev = {};  // Previous frame for interpolation
+  EngineData engine_data_interpolated = {};  // Interpolated values for smooth display
   CANFrame frame;
   char line[256];
 
@@ -49,10 +142,17 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
   using Ms = std::chrono::milliseconds;
   using Micros = std::chrono::microseconds;
 
+  // Interpolation timing
+  auto last_can_update = Clock::now();
+  constexpr float interpolation_speed = 0.15f;  // Smoothing factor (0-1, lower = smoother)
+
   uint64_t frame_count = 0;
   auto last_perf_report = Clock::now();
   std::chrono::microseconds total_render_time{0};
   std::chrono::microseconds max_render_time{0};
+
+  // CAN data playback timing
+  auto playback_start = Clock::now();
 
   printf("\n--- Starting CAN data replay ---\n");
   printf("Simulating ESP32-S3 @ 240MHz performance constraints\n\n");
@@ -69,91 +169,50 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
       }
     }
 
-    // Read next line from CAN data file
-    if (fgets(line, sizeof(line), can_file)) {
-      if (CANParser::parse_line(line, frame)) {
-        // Decode the CAN frame
-        CANParser::decode_frame(frame, engine_data);
+    // Calculate elapsed time since playback started
+    auto elapsed = std::chrono::duration_cast<Ms>(frame_start - playback_start);
+    uint32_t elapsed_ms = elapsed.count();
 
-        // Print decoded data to console
-        printf("t=%5u | RPM=%4u | Speed=%3u MPH | Throttle=%3u%% | Coolant=%3dC | Boost=%+5.1f PSI | Knock=%u | Timing=%+3d\n",
-               frame.timestamp_ms,
-               engine_data.rpm,
-               engine_data.speed,
-               engine_data.throttle,
-               engine_data.coolant_temp,
-               engine_data.boost_psi,
-               engine_data.knock_count,
-               engine_data.timing_adv);
+    // Read and process CAN frames up to current elapsed time
+    // Limit to prevent blocking the render loop
+    constexpr int max_frames_per_render = 50;
+    int frames_processed = 0;
+
+    while (frames_processed < max_frames_per_render) {
+      long pos = ftell(can_file);
+      if (!fgets(line, sizeof(line), can_file)) {
+        // End of file, rewind to loop
+        rewind(can_file);
+        playback_start = frame_start; // Reset playback timer
+        printf("\n--- Looping CAN data ---\n\n");
+        continue;
       }
-    } else {
-      // End of file, rewind to loop
-      rewind(can_file);
-      printf("\n--- Rewinding CAN data ---\n\n");
+
+      // Try to parse the line
+      CANFrame temp_frame;
+      if (CANParser::parse_line(line, temp_frame)) {
+        // Check if this frame's timestamp is in the future
+        if (temp_frame.timestamp_ms > elapsed_ms) {
+          // This frame isn't due yet, rewind and break
+          fseek(can_file, pos, SEEK_SET);
+          break;
+        }
+
+        // Process this frame
+        frame = temp_frame;
+        engine_data_prev = engine_data;  // Save previous values
+        CANParser::decode_frame(frame, engine_data);
+        frames_processed++;
+        last_can_update = frame_start;  // Mark when we got new CAN data
+      }
     }
 
-    // Clear screen to black
+    // Smooth interpolation for display values
+    interpolate_engine_data(engine_data_interpolated, engine_data, interpolation_speed);
+
+    // Render frame
     gfx->clear(Theme::BLACK);
-
-    // Draw engine data on screen
-    char value_text[64];
-
-    // Left column - Bar gauges (limited width to not overlap right side)
-    constexpr int max_bar_width = 400;
-    constexpr int bar_height = 30;
-
-    // RPM gauge (0-8000 RPM range)
-    int rpm_width = (engine_data.rpm * max_bar_width) / 8000;
-    if (rpm_width > max_bar_width) rpm_width = max_bar_width;
-
-    gfx->fill_rect(50, 50, max_bar_width, bar_height, Theme::GRAY_DARK);
-    gfx->fill_rect(50, 50, rpm_width, bar_height, Theme::RED);
-
-    snprintf(value_text, sizeof(value_text), "RPM: %u", engine_data.rpm);
-    gfx->draw_text(value_text, 55, 60, 2, Theme::GRAY_LIGHT);
-
-    // Boost gauge (-15 to +20 PSI range)
-    int boost_width = (int)((engine_data.boost_psi + 15.0f) * (max_bar_width / 35.0f));
-    if (boost_width < 0) boost_width = 0;
-    if (boost_width > max_bar_width) boost_width = max_bar_width;
-
-    gfx->fill_rect(50, 100, max_bar_width, bar_height, Theme::GRAY_DARK);
-    gfx->fill_rect(50, 100, boost_width, bar_height, Theme::CYAN);
-
-    snprintf(value_text, sizeof(value_text), "BOOST: %+.1f PSI", engine_data.boost_psi);
-    gfx->draw_text(value_text, 55, 110, 2, Theme::GRAY_LIGHT);
-
-    // Throttle gauge (0-100%)
-    int throttle_width = (engine_data.throttle * max_bar_width) / 100;
-    if (throttle_width > max_bar_width) throttle_width = max_bar_width;
-
-    gfx->fill_rect(50, 150, max_bar_width, bar_height, Theme::GRAY_DARK);
-    gfx->fill_rect(50, 150, throttle_width, bar_height, Theme::GREEN);
-
-    snprintf(value_text, sizeof(value_text), "THROTTLE: %u%%", engine_data.throttle);
-    gfx->draw_text(value_text, 55, 160, 2, Theme::GRAY_LIGHT);
-
-    // Right column - Additional info
-    snprintf(value_text, sizeof(value_text), "SPEED: %u MPH", engine_data.speed);
-    gfx->draw_text(value_text, 480, 50, 2, Theme::GRAY_LIGHT);
-
-    snprintf(value_text, sizeof(value_text), "COOLANT: %dC", engine_data.coolant_temp);
-    gfx->draw_text(value_text, 480, 80, 2, Theme::GRAY_LIGHT);
-
-    snprintf(value_text, sizeof(value_text), "TIMING: %+d", engine_data.timing_adv);
-    gfx->draw_text(value_text, 480, 110, 2, Theme::GRAY_LIGHT);
-
-    // Warning indicators at bottom
-    if (engine_data.knock_detected) {
-      gfx->fill_rect(50, 270, 120, 40, Theme::YELLOW);
-      gfx->draw_text("!KNOCK!", 55, 282, 2, Theme::BLACK);
-    }
-
-    if (engine_data.overboost) {
-      gfx->fill_rect(190, 270, 180, 40, Theme::MAGENTA);
-      gfx->draw_text("!OVERBOOST!", 195, 282, 2, Theme::BLACK);
-    }
-
+    render_gauges(gfx, engine_data_interpolated);
     gfx->present();
 
     // Calculate render time for this frame
@@ -167,11 +226,11 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
     frame_count++;
 
     // Performance report every 5 seconds
-    auto elapsed = std::chrono::duration_cast<Ms>(frame_end - last_perf_report);
-    if (elapsed.count() >= 5000) {
+    auto perf_elapsed = std::chrono::duration_cast<Ms>(frame_end - last_perf_report);
+    if (perf_elapsed.count() >= 5000) {
       float avg_render_ms = total_render_time.count() / 1000.0f / frame_count;
       float max_render_ms = max_render_time.count() / 1000.0f;
-      float fps = frame_count / (elapsed.count() / 1000.0f);
+      float fps = frame_count / (perf_elapsed.count() / 1000.0f);
 
       printf("\n[PERF] Avg render: %.2fms | Max: %.2fms | FPS: %.1f\n",
              avg_render_ms, max_render_ms, fps);
