@@ -1,5 +1,6 @@
 #include "gui.hpp"
 #include "graphics/gfx_types.hpp"
+#include "graphics/sprite.hpp"
 #include <cmath>
 #include <cstdio>
 
@@ -94,10 +95,6 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
 
 // Draw turbo with spin animation and boost-based color/scale
 void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
-  // Turbo housing
-  constexpr int housing_w = 80;
-  constexpr int housing_h = 60;
-
   // Color interpolation: blue (no boost) -> cyan -> yellow -> red (max boost)
   // Boost range: -15 to +20 PSI
   float boost_normalized = (data.boost_psi + 15.0f) / 35.0f;
@@ -106,42 +103,30 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
 
   Color turbo_color = Theme::BLUE;
   if (boost_normalized < 0.5f) {
-    turbo_color = lerp_color(Theme::BLUE, Theme::CYAN, boost_normalized * 2.0f);
+    turbo_color = lerp_color(Theme::BLUE, Theme::YELLOW, boost_normalized * 2.0f);
   } else {
-    turbo_color = lerp_color(Theme::CYAN, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
+    turbo_color = lerp_color(Theme::YELLOW, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
   }
 
-  // Scale factor based on boost (swell effect)
-  float scale = 1.0f + boost_normalized * 0.3f;
-  int scaled_w = (int)(housing_w * scale);
-  int scaled_h = (int)(housing_h * scale);
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
-  // Turbo housing body
-  gfx->fill_rect(cx - scaled_w/2, cy - scaled_h/2, scaled_w, scaled_h, turbo_color);
-  gfx->draw_rect(cx - scaled_w/2, cy - scaled_h/2, scaled_w, scaled_h, Theme::GRAY_LIGHT);
-
-  // Compressor wheel (spinning based on boost)
+  // Spinning compressor wheel based on boost
   float spin_speed = boost_normalized * 10.0f; // rad/s
   float wheel_angle = time_s * spin_speed;
-  int wheel_radius = (int)(20 * scale);
 
-  // Draw 6 blades
-  for (int i = 0; i < 6; i++) {
-    float blade_angle = wheel_angle + (i * 3.14159f / 3.0f);
-    int x1 = cx + (int)(cosf(blade_angle) * wheel_radius);
-    int y1 = cy + (int)(sinf(blade_angle) * wheel_radius);
-    gfx->draw_line(cx, cy, x1, y1, Theme::WHITE);
-  }
+  // Draw rotated turbo blades FIRST (so they appear behind)
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_turbo_blades, cx, cy - 3, wheel_angle, true);
 
-  gfx->draw_circle(cx, cy, wheel_radius, Theme::GRAY_LIGHT);
+  // Draw turbo housing LAST (on top) with color replacement for magenta areas
+  atlas.draw_with_color(fb, fb_w, fb_h, spr_turbo_housing,
+                        cx - spr_turbo_housing.w/2, cy - spr_turbo_housing.h/2,
+                        turbo_color);
 }
 
 // Draw intercooler with temperature-based color
 void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data) {
-  constexpr int ic_w = 140;
-  constexpr int ic_h = 40;
-  constexpr int fin_count = 12;
-
   // Color based on intake temp: blue (cold) -> green -> yellow -> red (hot)
   // Typical range: -10°C to 80°C
   float temp_normalized = (data.intake_temp + 10.0f) / 90.0f;
@@ -157,16 +142,14 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
     ic_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
   }
 
-  // Intercooler body
-  gfx->fill_rect(cx - ic_w/2, cy - ic_h/2, ic_w, ic_h, ic_color);
-  gfx->draw_rect(cx - ic_w/2, cy - ic_h/2, ic_w, ic_h, Theme::GRAY_LIGHT);
+  // Draw intercooler sprite with color replacement for magenta areas
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
-  // Cooling fins
-  int fin_spacing = ic_w / fin_count;
-  for (int i = 0; i < fin_count; i++) {
-    int fx = cx - ic_w/2 + i * fin_spacing;
-    gfx->draw_line(fx, cy - ic_h/2, fx, cy + ic_h/2, Theme::GRAY_DARK);
-  }
+  atlas.draw_with_color(fb, fb_w, fb_h, spr_intercooler,
+                        cx - spr_intercooler.w/2, cy - spr_intercooler.h/2,
+                        ic_color);
 }
 
 // Draw coolant lines around engine
@@ -201,27 +184,18 @@ void GUI::draw_coolant_lines(Graphics* gfx, int engine_cx, int engine_cy, const 
 
 // Draw battery with voltage-based color
 void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& /*data*/) {
-  constexpr int bat_w = 60;
-  constexpr int bat_h = 80;
-
   // For now, use green (we don't have voltage in EngineData yet)
   // TODO: Map voltage 11V-14.5V to red->yellow->green
   Color bat_color = Theme::GREEN;
 
-  // Battery body
-  gfx->fill_rect(cx - bat_w/2, cy - bat_h/2, bat_w, bat_h, bat_color);
-  gfx->draw_rect(cx - bat_w/2, cy - bat_h/2, bat_w, bat_h, Theme::GRAY_LIGHT);
+  // Draw battery sprite with color replacement for magenta areas
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
-  // Positive terminal
-  gfx->fill_rect(cx - 15, cy - bat_h/2 - 8, 12, 8, Theme::RED);
-  gfx->draw_text("+", cx - 13, cy - bat_h/2 - 6, 1, Theme::WHITE);
-
-  // Negative terminal
-  gfx->fill_rect(cx + 3, cy - bat_h/2 - 8, 12, 8, Theme::GRAY_DARK);
-  gfx->draw_text("-", cx + 5, cy - bat_h/2 - 6, 1, Theme::WHITE);
-
-  // Lead to engine (simplified)
-  gfx->draw_line(cx - bat_w/2, cy, cx - 150, cy, Theme::YELLOW);
+  atlas.draw_with_color(fb, fb_w, fb_h, spr_battery,
+                        cx - spr_battery.w/2, cy - spr_battery.h/2,
+                        bat_color);
 }
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
@@ -268,20 +242,57 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
 //==============================================================================
 
 void GUI::init() {
-  // Currently no initialization needed
-  // Reserved for future use (e.g., loading sprites, initializing state)
+  // Load sprite atlas
+  if (!atlas.load_from_file("res/atlas.bmp")) {
+    fprintf(stderr, "Failed to load sprite atlas!\n");
+  }
+
+  // Load background
+  if (!background.load_from_file("res/background.bmp")) {
+    fprintf(stderr, "Failed to load background!\n");
+  }
+
+  // Define sprite positions in atlas (16x16 tile grid)
+  // Coordinates provided by user in tiles, converted to pixels
+  // Format: {x_pixels, y_pixels, width_pixels, height_pixels}
+
+  // Turbo housing: tiles (0,5) to (5,12) = 5 tiles wide, 7 tiles tall
+  spr_turbo_housing = {0, 80, 96, 128};    // 0*16=0, 5*16=80, 5*16=80, 7*16=112
+
+  // Turbo blades: tiles (6,5) to (9,8) = 3 tiles wide, 3 tiles tall
+  spr_turbo_blades = {96, 80, 64, 64};     // 6*16=96, 5*16=80, 3*16=48, 3*16=48
+
+  // Battery: tiles (6,9) to (9,12) = 3 tiles wide, 3 tiles tall
+  spr_battery = {96, 144, 64, 64};         // 6*16=96, 9*16=144, 3*16=48, 3*16=48
+
+  // Intercooler: tiles (0,0) to (13,4) = 13 tiles wide, 4 tiles tall
+  spr_intercooler = {0, 0, 224, 80};       // 0*16=0, 0*16=0, 13*16=208, 4*16=64
+
+  // Motor block: Not defined yet
+  spr_motor_block = {0, 0, 0, 0};          // TODO: Define motor block sprite
+
+  printf("GUI sprites initialized\n");
 }
 
 void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
+  // Get framebuffer for sprite drawing
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+
+  // Draw background first (full screen, 960x320)
+  Sprite bg_sprite = {0, 0, 960, 320};
+  background.draw(fb, fb_w, fb_h, bg_sprite, 0, 0, false);
+
   // Layout centers (for 960x320 screen)
   constexpr int engine_cx = 480;
-  constexpr int engine_cy = 190;  // Moved down from 140
+  constexpr int engine_cy = 230;
   constexpr int turbo_cx = 200;
-  constexpr int turbo_cy = 120;   // Moved down from 90
+  constexpr int turbo_cy = 120;
   constexpr int ic_cx = 480;
-  constexpr int ic_cy = 50;       // Moved down from 30
+  constexpr int ic_cy = 80;
   constexpr int battery_cx = 760;
-  constexpr int battery_cy = 120; // Moved down from 90
+  constexpr int battery_cy = 120;
 
   // Draw top RPM bar (Assetto Corsa style)
   draw_top_rpm_bar(gfx, data);

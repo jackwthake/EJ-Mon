@@ -157,8 +157,7 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
     auto time_elapsed = std::chrono::duration_cast<Micros>(frame_start - playback_start);
     float time_s = time_elapsed.count() / 1000000.0f;
 
-    // Render frame
-    gfx->clear(Theme::BLACK);
+    // Render frame (background sprite acts as clear)
     gui.render(gfx, engine_data_interpolated, time_s);
     gfx->present();
 

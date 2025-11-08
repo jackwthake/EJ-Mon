@@ -1,0 +1,18 @@
+# Sprite Atlas Mapper for res/atlas.bmp (576x281)
+# Format: sprite_name = {x, y, width, height}
+# All values in pixels
+# Use 16x16 tile grid as reference
+
+# Atlas is 576x281 pixels
+# At 16x16 tiles: 36 tiles wide x 17.5 tiles tall
+
+# Define your sprites here (update with actual positions):
+
+turbo_housing = {x, y, w, h}
+turbo_blades = {x, y, w, h}
+intercooler = {x, y, w, h}
+motor_block = {x, y, w, h}
+battery = {x, y, w, h}
+rpm_bar_segment = {x, y, w, h}
+afr_bar = {x, y, w, h}
+throttle_bar = {x, y, w, h}
