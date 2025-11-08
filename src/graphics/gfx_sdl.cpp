@@ -1,10 +1,12 @@
-#ifdef PLATFORM_DESKTOP
+#include "../platform.hpp"
+
+#if PLATFORM_DESKTOP
 
 #include "gfx_backend.hpp"
 
 GraphicsSDL::GraphicsSDL(int w, int h) : framebuffer_(w, h) {
   SDL_Init(SDL_INIT_VIDEO);
-  window_ = SDL_CreateWindow("EJ-Mon", w, h, SDL_WINDOWPOS_CENTERED);
+  window_ = SDL_CreateWindow("EJ-Mon", w, h, 0);
   renderer_ = SDL_CreateRenderer(window_, nullptr);
 }
 

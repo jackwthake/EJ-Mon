@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "platform.h"
+#include "../platform.hpp"
 
 // CAN frame structure (generic format for both platforms)
 struct CANFrame {

@@ -28,6 +28,9 @@ public:
   void draw_char(char c, int x, int y, int scale, Color color);
   void draw_text(const char* text, int x, int y, int scale, Color color);
   int measure_text(const char* text, int scale);  // Returns width
+
+  // Virtual destructor
+  virtual ~Graphics() = default;
 };
 
 // Factory function - creates appropriate backend
