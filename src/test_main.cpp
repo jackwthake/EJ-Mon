@@ -7,7 +7,7 @@
 #include "can/can_parser.h"
 #include "graphics/gfx.hpp"
 #include "graphics/gfx_backend.hpp"
-#include "graphics/gfx_types.hpp"
+#include "gui.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -41,67 +41,6 @@ static void interpolate_engine_data(EngineData& interpolated, const EngineData& 
   interpolated.overboost = target.overboost;
 }
 
-// Render the gauge display
-static void render_gauges(Graphics* gfx, const EngineData& data) {
-  char value_text[64];
-
-  // Left column - Bar gauges
-  constexpr int max_bar_width = 400;
-  constexpr int bar_height = 30;
-
-  // RPM gauge (0-8000 RPM range)
-  int rpm_width = (data.rpm * max_bar_width) / 8000;
-  if (rpm_width > max_bar_width) rpm_width = max_bar_width;
-
-  gfx->fill_rect(50, 50, max_bar_width, bar_height, Theme::GRAY_DARK);
-  gfx->fill_rect(50, 50, rpm_width, bar_height, Theme::RED);
-
-  snprintf(value_text, sizeof(value_text), "RPM: %u", data.rpm);
-  gfx->draw_text(value_text, 55, 60, 2, Theme::GRAY_LIGHT);
-
-  // Boost gauge (-15 to +20 PSI range)
-  int boost_width = (int)((data.boost_psi + 15.0f) * (max_bar_width / 35.0f));
-  if (boost_width < 0) boost_width = 0;
-  if (boost_width > max_bar_width) boost_width = max_bar_width;
-
-  gfx->fill_rect(50, 100, max_bar_width, bar_height, Theme::GRAY_DARK);
-  gfx->fill_rect(50, 100, boost_width, bar_height, Theme::CYAN);
-
-  snprintf(value_text, sizeof(value_text), "BOOST: %+.1f PSI", data.boost_psi);
-  gfx->draw_text(value_text, 55, 110, 2, Theme::GRAY_LIGHT);
-
-  // Throttle gauge (0-100%)
-  int throttle_width = (data.throttle * max_bar_width) / 100;
-  if (throttle_width > max_bar_width) throttle_width = max_bar_width;
-
-  gfx->fill_rect(50, 150, max_bar_width, bar_height, Theme::GRAY_DARK);
-  gfx->fill_rect(50, 150, throttle_width, bar_height, Theme::GREEN);
-
-  snprintf(value_text, sizeof(value_text), "THROTTLE: %u%%", data.throttle);
-  gfx->draw_text(value_text, 55, 160, 2, Theme::GRAY_LIGHT);
-
-  // Right column - Additional info
-  snprintf(value_text, sizeof(value_text), "SPEED: %u MPH", data.speed);
-  gfx->draw_text(value_text, 480, 50, 2, Theme::GRAY_LIGHT);
-
-  snprintf(value_text, sizeof(value_text), "COOLANT: %dC", data.coolant_temp);
-  gfx->draw_text(value_text, 480, 80, 2, Theme::GRAY_LIGHT);
-
-  snprintf(value_text, sizeof(value_text), "TIMING: %+d", data.timing_adv);
-  gfx->draw_text(value_text, 480, 110, 2, Theme::GRAY_LIGHT);
-
-  // Warning indicators at bottom
-  if (data.knock_detected) {
-    gfx->fill_rect(50, 270, 120, 40, Theme::YELLOW);
-    gfx->draw_text("!KNOCK!", 55, 282, 2, Theme::BLACK);
-  }
-
-  if (data.overboost) {
-    gfx->fill_rect(190, 270, 180, 40, Theme::MAGENTA);
-    gfx->draw_text("!OVERBOOST!", 195, 282, 2, Theme::BLACK);
-  }
-}
-
 //==============================================================================
 // Main Entry Point
 //==============================================================================
@@ -118,6 +57,10 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
   }
 
   gfx->begin();
+
+  // Initialize GUI
+  GUI gui;
+  gui.init();
 
   // Open CAN test data file
   FILE* can_file = fopen("test-data/can_data_sample.txt", "r");
@@ -210,9 +153,13 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
     // Smooth interpolation for display values
     interpolate_engine_data(engine_data_interpolated, engine_data, interpolation_speed);
 
+    // Calculate time in seconds for animations
+    auto time_elapsed = std::chrono::duration_cast<Micros>(frame_start - playback_start);
+    float time_s = time_elapsed.count() / 1000000.0f;
+
     // Render frame
     gfx->clear(Theme::BLACK);
-    render_gauges(gfx, engine_data_interpolated);
+    gui.render(gfx, engine_data_interpolated, time_s);
     gfx->present();
 
     // Calculate render time for this frame

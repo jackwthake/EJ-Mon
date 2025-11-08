@@ -35,6 +35,7 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
     src/graphics/gfx.cpp
     src/graphics/gfx_sdl.cpp
     src/graphics/framebuffer.cpp
+    src/gui.cpp
   )
 
   target_link_libraries(ej-mon PRIVATE
