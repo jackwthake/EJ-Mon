@@ -32,6 +32,11 @@ public:
                        const Sprite& sprite, int x, int y,
                        Color replace_color);
 
+  // Draw sprite rotated around center point
+  void draw_rotated(uint16_t* fb, int fb_w, int fb_h,
+                    const Sprite& sprite, int cx, int cy,
+                    float angle_rad, bool transparent = true);
+
   // Draw sprite with vertical fill level (0.0 = empty, 1.0 = full)
   // Fills from bottom to top
   void draw_with_fill(uint16_t* fb, int fb_w, int fb_h,

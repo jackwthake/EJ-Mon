@@ -115,6 +115,51 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
                         ic_color);
 }
 
+// Draw 4 cam gears rotating around the engine
+void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s) {
+  // Camshafts rotate at half crankshaft speed (2:1 ratio)
+  // Calculate rotation angle based on RPM and time
+  float cam_rpm = data.rpm / 2.0f;
+  float revolutions_per_second = cam_rpm / 60.0f;
+  const float TWO_PI = 2.0f * 3.14159f;
+  float angle = revolutions_per_second * time_s * TWO_PI;
+
+  // Normalize angle to prevent floating point precision issues
+  // Keep angle within 0 to 2π range
+  angle = fmodf(angle, TWO_PI);
+  if (angle < 0) angle += TWO_PI;
+
+  // Get framebuffer
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+
+  // Calculate engine sprite's top-left corner
+  // engine_cx and engine_cy are the center of the engine (384x192 sprite)
+  int engine_left = engine_cx - spr_motor_block.w / 2;
+  int engine_top = engine_cy - spr_motor_block.h / 2;
+
+  // Cam gear positions relative to engine sprite (centers)
+  // Positions given: (43, 39), (348, 49), (42, 134), (348, 134)
+  int gear1_x = engine_left + 40;
+  int gear1_y = engine_top + 39;
+
+  int gear2_x = engine_left + 345;
+  int gear2_y = engine_top + 39;
+
+  int gear3_x = engine_left + 40;
+  int gear3_y = engine_top + 135;
+
+  int gear4_x = engine_left + 345;
+  int gear4_y = engine_top + 134;
+
+  // Draw all 4 cam gears rotating at the same speed
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear2_x, gear2_y, angle, true);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear3_x, gear3_y, angle, true);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear4_x, gear4_y, angle, true);
+}
+
 // Draw battery with vertical fill level
 void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
   // For now, use throttle as a placeholder for battery level
@@ -210,6 +255,9 @@ void GUI::init() {
   // Engine: (0, 224) to (383, 415) = 384x192
   spr_motor_block = {0, 224, 384, 192};
 
+  // Cam gear: (256, 0) to (319, 63) = 64x64
+  spr_cam_gear = {256, 0, 64, 64};
+
   printf("GUI sprites initialized\n");
 }
 
@@ -238,6 +286,7 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Draw all components
   draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
+  draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
   draw_battery(gfx, battery_cx, battery_cy, data);

@@ -23,11 +23,13 @@ private:
   Sprite spr_intercooler;
   Sprite spr_motor_block;
   Sprite spr_battery;
+  Sprite spr_cam_gear;
 
   // Helper functions for drawing individual components
   void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
   void draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
   void draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data);
+  void draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s);
   void draw_top_rpm_bar(Graphics* gfx, const EngineData& data);
 };

@@ -1,6 +1,7 @@
 #include "sprite.hpp"
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 #ifdef PLATFORM_DESKTOP
 #include <cstdlib>
@@ -176,6 +177,53 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
       }
 
       fb[(y + dy) * fb_w + (x + dx)] = color;
+    }
+  }
+}
+
+// Draw sprite rotated around center point
+void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
+                               const Sprite& sprite, int cx, int cy,
+                               float angle_rad, bool transparent) {
+  if (!pixels) return;
+
+  float cos_a = cosf(angle_rad);
+  float sin_a = sinf(angle_rad);
+
+  float half_w = sprite.w / 2.0f;
+  float half_h = sprite.h / 2.0f;
+
+  // Bounding box for rotated sprite
+  float max_dim = sqrtf(sprite.w * sprite.w + sprite.h * sprite.h) / 2.0f + 1;
+
+  for (float dy = -max_dim; dy <= max_dim; dy++) {
+    for (float dx = -max_dim; dx <= max_dim; dx++) {
+      // Rotate point back to sprite space
+      float src_x = (dx * cos_a + dy * sin_a) + half_w;
+      float src_y = (-dx * sin_a + dy * cos_a) + half_h;
+
+      // Check if source point is within sprite bounds
+      if (src_x < 0 || src_x >= sprite.w || src_y < 0 || src_y >= sprite.h) continue;
+
+      // Calculate screen position
+      float screen_x = (float)cx + dx;
+      float screen_y = (float)cy + dy;
+
+      // Check if screen position is valid
+      if (screen_x < 0 || screen_x >= fb_w || screen_y < 0 || screen_y >= fb_h) continue;
+
+      // Get pixel from atlas
+      int atlas_x = sprite.x + src_x;
+      int atlas_y = sprite.y + src_y;
+
+      if (atlas_x >= width || atlas_y >= height) continue;
+
+      uint16_t color = pixels[atlas_y * width + atlas_x];
+
+      // Skip transparent pixels
+      if (transparent && color == BLACK_RGB565) continue;
+
+      fb[(int)screen_y * fb_w + (int)screen_x] = color;
     }
   }
 }
