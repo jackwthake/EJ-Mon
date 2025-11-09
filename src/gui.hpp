@@ -4,6 +4,8 @@
 #include "graphics/sprite.hpp"
 #include "can/can_parser.h"
 
+constexpr uint16_t SHIFT_LIGHT_RPM = 4500;  // RPM to start shift light
+
 // GUI state and rendering for EJ-Mon
 class GUI {
 public:
@@ -24,6 +26,8 @@ private:
   Sprite spr_motor_block;
   Sprite spr_battery;
   Sprite spr_cam_gear;
+
+  bool last_frame_above_shift_rpm = false;
 
   // Helper functions for drawing individual components
   void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);

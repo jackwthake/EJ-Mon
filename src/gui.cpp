@@ -3,6 +3,7 @@
 #include "graphics/sprite.hpp"
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 
 
 //==============================================================================
@@ -188,13 +189,13 @@ void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
 void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
-  constexpr int bar_y = 5;
+  constexpr int bar_y = 0;
   constexpr int bar_h = 15;
   constexpr int screen_w = 960;
   constexpr int center_x = screen_w / 2;
 
-  // RPM range: 0-8000
-  constexpr int max_rpm = 8000;
+  // RPM range: 0-6500 RPM
+  constexpr int max_rpm = 6500;
   float rpm_normalized = (float)data.rpm / (float)max_rpm;
   if (rpm_normalized > 1.0f) rpm_normalized = 1.0f;
 
@@ -202,27 +203,23 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
   int half_fill = (int)(rpm_normalized * center_x);
 
   // Color transitions: green -> yellow -> red as RPM increases
-  Color bar_color = Theme::GREEN;
-  if (rpm_normalized > 0.85f) {
-    bar_color = Theme::RED;
-  } else if (rpm_normalized > 0.70f) {
-    bar_color = Theme::YELLOW;
-  }
+  Color bar_color = Theme::WHITE;
 
-  // Draw background (dark gray)
-  gfx->fill_rect(0, bar_y, screen_w, bar_h, Theme::GRAY_DARK);
+  if (rpm_normalized <= 0.7f) {
+    // From 0.0 → 0.7, fade from white → yellow
+    float t = rpm_normalized / 0.7f;
+    bar_color = lerp_color(Theme::WHITE, Theme::YELLOW, t);
+  } else {
+    // From 0.7 → 1.0, fade from yellow → red
+    float t = (rpm_normalized - 0.7f) / (1.0f - 0.7f);
+    bar_color = lerp_color(Theme::YELLOW, Theme::RED, t);
+  }
 
   // Draw left side (fills from left edge toward center)
   gfx->fill_rect(0, bar_y, half_fill, bar_h, bar_color);
 
   // Draw right side (fills from right edge toward center)
   gfx->fill_rect(screen_w - half_fill, bar_y, half_fill, bar_h, bar_color);
-
-  // Draw RPM value in center
-  char rpm_text[16];
-  snprintf(rpm_text, sizeof(rpm_text), "%u", data.rpm);
-  int text_w = gfx->measure_text(rpm_text, 2);
-  gfx->draw_text(rpm_text, center_x - text_w/2, bar_y + 3, 2, Theme::WHITE);
 }
 
 //==============================================================================
@@ -247,7 +244,7 @@ void GUI::init() {
   spr_battery = {0, 0, 128, 96};
 
   // Turbo: (128, 0) to (255, 127) = 128x128
-  spr_turbo_housing = {128, 0, 128, 128};
+  spr_turbo_housing = {128, 0, 127, 128};
 
   // Intercooler: (0, 128) to (319, 223) = 320x96
   spr_intercooler = {0, 128, 320, 96};
@@ -261,25 +258,49 @@ void GUI::init() {
   printf("GUI sprites initialized\n");
 }
 
+static constexpr Color SHIFT_LIGHT_COLORS[] = { 
+  Theme::YELLOW, Theme::WHITE, Theme::RED, Theme::WHITE
+};
+
 void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   // Get framebuffer for sprite drawing
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  // Draw background first (full screen, 960x320)
-  Sprite bg_sprite = {0, 0, 960, 320};
-  background.draw(fb, fb_w, fb_h, bg_sprite, 0, 0, false);
+  Color bg_color(0, 0, 20);
+
+  if (data.rpm >= 4000 && data.rpm < SHIFT_LIGHT_RPM) {
+    float t = (float)(data.rpm - 4000) / 3000.0f;
+
+    // Light blue to dark red
+    bg_color = lerp_color(Color(0, 0, 20), Color(200, 0, 0), t);
+
+    last_frame_above_shift_rpm = false;
+  } else if (data.rpm >= SHIFT_LIGHT_RPM) {
+    // Flashing shift light effect
+    if (!last_frame_above_shift_rpm) {
+      last_frame_above_shift_rpm = true;
+    }
+
+    float t = fmodf(time_s * 1.5f, 1.0f);  // 5 Hz flash
+    int color_index = (int)(t * (sizeof(SHIFT_LIGHT_COLORS)/sizeof(SHIFT_LIGHT_COLORS[0])));
+    bg_color = SHIFT_LIGHT_COLORS[color_index];
+  } else {
+    last_frame_above_shift_rpm = false;
+  }
+
+  gfx->clear(bg_color);
 
   // Layout centers (for 960x320 screen)
   constexpr int engine_cx = 480;
   constexpr int engine_cy = 230;
-  constexpr int turbo_cx = 150;
-  constexpr int turbo_cy = 200;
+  constexpr int turbo_cx = 140;
+  constexpr int turbo_cy = 220;
   constexpr int ic_cx = 480;
-  constexpr int ic_cy = 80;
-  constexpr int battery_cx = 800;
-  constexpr int battery_cy = 200;
+  constexpr int ic_cy = 75;
+  constexpr int battery_cx = 810;
+  constexpr int battery_cy = 250;
 
   // Draw top RPM bar (Assetto Corsa style)
   draw_top_rpm_bar(gfx, data);
@@ -293,12 +314,12 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Warning indicators (moved down below RPM bar)
   if (data.knock_detected) {
-    gfx->fill_rect(10, 25, 180, 50, Theme::YELLOW);
-    gfx->draw_text("!KNOCK!", 20, 35, 5, Theme::BLACK);
+    gfx->fill_rect(45, 30, 180, 50, Theme::YELLOW);
+    gfx->draw_text("!KNOCK!", 70, 40, 5, Theme::BLACK);
   }
 
   if (data.overboost) {
-    gfx->fill_rect(200, 25, 280, 50, Theme::MAGENTA);
+    gfx->fill_rect(200, 30, 280, 50, Theme::MAGENTA);
     gfx->draw_text("!OVERBOOST!", 210, 35, 5, Theme::BLACK);
   }
 }
