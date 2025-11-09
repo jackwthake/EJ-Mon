@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
+
 //==============================================================================
 // Helper Functions
 //==============================================================================
@@ -33,93 +34,55 @@ static Color lerp_color(Color c1, Color c2, float t) {
 // GUI Component Drawing Functions
 //==============================================================================
 
-// Draw EJ engine (top-down view) with animated pistons
-void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
-  // EJ engine block (simplified boxer layout)
-  constexpr int block_w = 180;
-  constexpr int block_h = 220;
-  constexpr int cylinder_spacing = 55;
+// Draw EJ engine sprite with coolant temperature color
+void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
+  // Color based on coolant temp: blue (cold) -> green -> yellow -> red (hot)
+  // Typical range: 0°C to 120°C
+  float temp_normalized = data.coolant_temp / 120.0f;
+  if (temp_normalized < 0.0f) temp_normalized = 0.0f;
+  if (temp_normalized > 1.0f) temp_normalized = 1.0f;
 
-  // Engine block outline
-  gfx->fill_rect(cx - block_w/2, cy - block_h/2, block_w, block_h, Theme::GRAY_DARK);
-  gfx->draw_rect(cx - block_w/2, cy - block_h/2, block_w, block_h, Theme::GRAY_LIGHT);
-
-  // Piston animation based on RPM
-  // RPM -> revolutions per second -> radians per second
-  float rpm_rps = data.rpm / 60.0f;
-  float crank_angle = time_s * rpm_rps * 2.0f * 3.14159f;
-
-  // EJ25 firing order: 1-3-2-4
-  // Cylinder positions (left bank = -1, right bank = +1)
-  struct Cylinder { int x_offset; int y_offset; float phase; };
-  Cylinder cylinders[4] = {
-    {-70, -cylinder_spacing, 0.0f},           // Cyl 1 (left front)
-    {-70, cylinder_spacing, 3.14159f},        // Cyl 2 (left rear) - 180° offset
-    {70, -cylinder_spacing, 4.71239f},        // Cyl 3 (right front) - 270° offset
-    {70, cylinder_spacing, 1.5708f}           // Cyl 4 (right rear) - 90° offset
-  };
-
-  // Draw cylinders and pistons
-  for (int i = 0; i < 4; i++) {
-    int cyl_x = cx + cylinders[i].x_offset;
-    int cyl_y = cy + cylinders[i].y_offset;
-
-    // Cylinder bore
-    gfx->draw_circle(cyl_x, cyl_y, 18, Theme::GRAY_LIGHT);
-
-    // Piston animation: moves horizontally (side-to-side) like a boxer engine
-    float piston_angle = crank_angle + cylinders[i].phase;
-    float piston_offset = sinf(piston_angle) * 12.0f;  // Horizontal movement distance
-
-    // Left bank pistons move left/right from center
-    // Right bank pistons move left/right from center
-    int piston_x = cyl_x + (int)piston_offset;
-
-    // Piston dimensions
-    constexpr int piston_w = 14;
-    constexpr int piston_h = 14;
-
-    // Color changes based on stroke: yellow when moving outward, cyan when moving inward
-    Color piston_color = (piston_offset > 0) ? Theme::YELLOW : Theme::CYAN;
-
-    // Draw piston as a rectangle that slides horizontally
-    gfx->fill_rect(piston_x - piston_w/2, cyl_y - piston_h/2,
-                   piston_w, piston_h, piston_color);
-    gfx->draw_rect(piston_x - piston_w/2, cyl_y - piston_h/2,
-                   piston_w, piston_h, Theme::GRAY_LIGHT);
+  Color coolant_color = Theme::BLUE;
+  if (temp_normalized < 0.33f) {
+    coolant_color = lerp_color(Theme::BLUE, Theme::GREEN, temp_normalized * 3.0f);
+  } else if (temp_normalized < 0.66f) {
+    coolant_color = lerp_color(Theme::GREEN, Theme::YELLOW, (temp_normalized - 0.33f) * 3.0f);
+  } else {
+    coolant_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
   }
 
-  // Crankshaft center
-  gfx->fill_rect(cx - 6, cy - 6, 12, 12, Theme::RED);
+  // Draw engine sprite with color replacement for magenta areas
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+
+  atlas.draw_with_color(fb, fb_w, fb_h, spr_motor_block,
+                        cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
+                        coolant_color);
 }
 
-// Draw turbo with spin animation and boost-based color/scale
-void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
-  // Color interpolation: blue (no boost) -> cyan -> yellow -> red (max boost)
+// Draw turbo sprite with boost-based color
+void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
+  // Color interpolation: green (low boost) -> yellow (moderate boost) -> red (high boost)
   // Boost range: -15 to +20 PSI
   float boost_normalized = (data.boost_psi + 15.0f) / 35.0f;
   if (boost_normalized < 0.0f) boost_normalized = 0.0f;
   if (boost_normalized > 1.0f) boost_normalized = 1.0f;
 
-  Color turbo_color = Theme::BLUE;
+  Color turbo_color = Theme::GREEN;
   if (boost_normalized < 0.5f) {
-    turbo_color = lerp_color(Theme::BLUE, Theme::YELLOW, boost_normalized * 2.0f);
+    // Green -> Yellow (0% to 50%)
+    turbo_color = lerp_color(Theme::GREEN, Theme::YELLOW, boost_normalized * 2.0f);
   } else {
+    // Yellow -> Red (50% to 100%)
     turbo_color = lerp_color(Theme::YELLOW, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
   }
 
+  // Draw turbo sprite with color replacement for magenta areas
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  // Spinning compressor wheel based on boost
-  float spin_speed = boost_normalized * 10.0f; // rad/s
-  float wheel_angle = time_s * spin_speed;
-
-  // Draw rotated turbo blades FIRST (so they appear behind)
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_turbo_blades, cx, cy - 3, wheel_angle, true);
-
-  // Draw turbo housing LAST (on top) with color replacement for magenta areas
   atlas.draw_with_color(fb, fb_w, fb_h, spr_turbo_housing,
                         cx - spr_turbo_housing.w/2, cy - spr_turbo_housing.h/2,
                         turbo_color);
@@ -182,20 +145,30 @@ void GUI::draw_coolant_lines(Graphics* gfx, int engine_cx, int engine_cy, const 
   gfx->fill_rect(engine_cx + 96, engine_cy - 120, line_thickness, 100, coolant_color);
 }
 
-// Draw battery with voltage-based color
-void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& /*data*/) {
-  // For now, use green (we don't have voltage in EngineData yet)
-  // TODO: Map voltage 11V-14.5V to red->yellow->green
-  Color bat_color = Theme::GREEN;
+// Draw battery with vertical fill level
+void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
+  // For now, use throttle as a placeholder for battery level
+  // TODO: Add voltage field to EngineData and map 11V-14.5V to 0-100%
+  float battery_level = data.throttle / 100.0f;  // 0.0 to 1.0
 
-  // Draw battery sprite with color replacement for magenta areas
+  // Color based on level: red (low) -> yellow (medium) -> green (full)
+  Color bat_color = Theme::GREEN;
+  if (battery_level < 0.33f) {
+    bat_color = lerp_color(Theme::RED, Theme::YELLOW, battery_level * 3.0f);
+  } else if (battery_level < 0.66f) {
+    bat_color = lerp_color(Theme::YELLOW, Theme::GREEN, (battery_level - 0.33f) * 3.0f);
+  } else {
+    bat_color = Theme::GREEN;
+  }
+
+  // Draw battery sprite with vertical fill level
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  atlas.draw_with_color(fb, fb_w, fb_h, spr_battery,
-                        cx - spr_battery.w/2, cy - spr_battery.h/2,
-                        bat_color);
+  atlas.draw_with_fill(fb, fb_w, fb_h, spr_battery,
+                       cx - spr_battery.w/2, cy - spr_battery.h/2,
+                       battery_level, bat_color);
 }
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
@@ -252,24 +225,21 @@ void GUI::init() {
     fprintf(stderr, "Failed to load background!\n");
   }
 
-  // Define sprite positions in atlas (16x16 tile grid)
-  // Coordinates provided by user in tiles, converted to pixels
+  // Define sprite positions in atlas (from SVG export)
   // Format: {x_pixels, y_pixels, width_pixels, height_pixels}
 
-  // Turbo housing: tiles (0,5) to (5,12) = 5 tiles wide, 7 tiles tall
-  spr_turbo_housing = {0, 80, 96, 128};    // 0*16=0, 5*16=80, 5*16=80, 7*16=112
+  // Battery: (0, 0) to (127, 95) = 128x96
+  spr_battery = {0, 0, 128, 96};
 
-  // Turbo blades: tiles (6,5) to (9,8) = 3 tiles wide, 3 tiles tall
-  spr_turbo_blades = {96, 80, 64, 64};     // 6*16=96, 5*16=80, 3*16=48, 3*16=48
+  // Turbo: (128, 0) to (255, 127) = 128x128
+  spr_turbo_housing = {128, 0, 128, 128};
+  spr_turbo_blades = {128, 0, 128, 128};  // Same as housing for now
 
-  // Battery: tiles (6,9) to (9,12) = 3 tiles wide, 3 tiles tall
-  spr_battery = {96, 144, 64, 64};         // 6*16=96, 9*16=144, 3*16=48, 3*16=48
+  // Intercooler: (0, 128) to (319, 223) = 320x96
+  spr_intercooler = {0, 128, 320, 96};
 
-  // Intercooler: tiles (0,0) to (13,4) = 13 tiles wide, 4 tiles tall
-  spr_intercooler = {0, 0, 224, 80};       // 0*16=0, 0*16=0, 13*16=208, 4*16=64
-
-  // Motor block: Not defined yet
-  spr_motor_block = {0, 0, 0, 0};          // TODO: Define motor block sprite
+  // Engine: (0, 224) to (383, 415) = 384x192
+  spr_motor_block = {0, 224, 384, 192};
 
   printf("GUI sprites initialized\n");
 }
@@ -287,31 +257,30 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   // Layout centers (for 960x320 screen)
   constexpr int engine_cx = 480;
   constexpr int engine_cy = 230;
-  constexpr int turbo_cx = 200;
-  constexpr int turbo_cy = 120;
+  constexpr int turbo_cx = 150;
+  constexpr int turbo_cy = 170;
   constexpr int ic_cx = 480;
   constexpr int ic_cy = 80;
-  constexpr int battery_cx = 760;
-  constexpr int battery_cy = 120;
+  constexpr int battery_cx = 800;
+  constexpr int battery_cy = 200;
 
   // Draw top RPM bar (Assetto Corsa style)
   draw_top_rpm_bar(gfx, data);
 
   // Draw all components
   draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
-  draw_coolant_lines(gfx, engine_cx, engine_cy, data);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
   draw_battery(gfx, battery_cx, battery_cy, data);
 
   // Warning indicators (moved down below RPM bar)
   if (data.knock_detected) {
-    gfx->fill_rect(10, 25, 100, 30, Theme::YELLOW);
-    gfx->draw_text("!KNOCK!", 15, 33, 1, Theme::BLACK);
+    gfx->fill_rect(10, 25, 180, 50, Theme::YELLOW);
+    gfx->draw_text("!KNOCK!", 20, 35, 5, Theme::BLACK);
   }
 
   if (data.overboost) {
-    gfx->fill_rect(120, 25, 120, 30, Theme::MAGENTA);
-    gfx->draw_text("!OVERBOOST!", 125, 33, 1, Theme::BLACK);
+    gfx->fill_rect(200, 25, 280, 50, Theme::MAGENTA);
+    gfx->draw_text("!OVERBOOST!", 210, 35, 5, Theme::BLACK);
   }
 }

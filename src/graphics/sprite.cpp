@@ -272,3 +272,49 @@ void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
     }
   }
 }
+
+// Draw sprite with vertical fill level (fills from bottom to top)
+void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
+                                  const Sprite& sprite, int x, int y,
+                                  float fill_level, Color fill_color) {
+  if (!pixels) return;
+
+  // Clamp fill level
+  if (fill_level < 0.0f) fill_level = 0.0f;
+  if (fill_level > 1.0f) fill_level = 1.0f;
+
+  // Calculate fill height (from bottom)
+  int fill_height = (int)(sprite.h * fill_level);
+  int fill_start_y = sprite.h - fill_height;  // Y offset where fill begins
+
+  for (int dy = 0; dy < sprite.h; dy++) {
+    int screen_y = y + dy;
+    if (screen_y < 0 || screen_y >= fb_h) continue;
+
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int screen_x = x + dx;
+      if (screen_x < 0 || screen_x >= fb_w) continue;
+
+      int atlas_x = sprite.x + dx;
+      int atlas_y = sprite.y + dy;
+
+      if (atlas_x >= width || atlas_y >= height) continue;
+
+      uint16_t color = pixels[atlas_y * width + atlas_x];
+
+      // Skip black (transparent) pixels
+      if (color == BLACK_RGB565) continue;
+
+      // If this is in the filled region and the pixel is magenta, use fill color
+      if (dy >= fill_start_y && color == MAGENTA_RGB565) {
+        color = fill_color.value;
+      }
+      // If this is above the fill line and magenta, skip it (empty part)
+      else if (dy < fill_start_y && color == MAGENTA_RGB565) {
+        continue;
+      }
+
+      fb[screen_y * fb_w + screen_x] = color;
+    }
+  }
+}

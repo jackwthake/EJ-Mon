@@ -37,6 +37,12 @@ public:
                     const Sprite& sprite, int cx, int cy,
                     float angle_rad, bool transparent = true);
 
+  // Draw sprite with vertical fill level (0.0 = empty, 1.0 = full)
+  // Fills from bottom to top
+  void draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
+                      const Sprite& sprite, int x, int y,
+                      float fill_level, Color fill_color);
+
   // Get atlas dimensions
   int get_width() const { return width; }
   int get_height() const { return height; }
@@ -46,8 +52,8 @@ private:
   int width;
   int height;
 
-  // Magenta color used for masking (Aseprite magenta: RGB 255, 0, 200)
-  // RGB565 conversion: R=255>>3=31, G=0>>2=0, B=200>>3=25
-  static constexpr uint16_t MAGENTA_RGB565 = (31 << 11) | (0 << 5) | 25;  // 0xF819
+  // Magenta color used for masking (RGB 255, 0, 255)
+  // RGB565 conversion: R=255>>3=31, G=0>>2=0, B=255>>3=31
+  static constexpr uint16_t MAGENTA_RGB565 = (31 << 11) | (0 << 5) | 31;  // 0xF81F
   static constexpr uint16_t BLACK_RGB565 = 0x0000;  // Black for transparency
 };
