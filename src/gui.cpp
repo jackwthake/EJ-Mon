@@ -115,36 +115,6 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
                         ic_color);
 }
 
-// Draw coolant lines around engine
-void GUI::draw_coolant_lines(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data) {
-  // Color based on coolant temp: blue (cold) -> green -> yellow -> red (hot)
-  // Typical range: 0°C to 120°C
-  float temp_normalized = data.coolant_temp / 120.0f;
-  if (temp_normalized < 0.0f) temp_normalized = 0.0f;
-  if (temp_normalized > 1.0f) temp_normalized = 1.0f;
-
-  Color coolant_color = Theme::BLUE;
-  if (temp_normalized < 0.33f) {
-    coolant_color = lerp_color(Theme::BLUE, Theme::GREEN, temp_normalized * 3.0f);
-  } else if (temp_normalized < 0.66f) {
-    coolant_color = lerp_color(Theme::GREEN, Theme::YELLOW, (temp_normalized - 0.33f) * 3.0f);
-  } else {
-    coolant_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
-  }
-
-  // Draw lines around top and sides of engine
-  int line_thickness = 4;
-
-  // Top line
-  gfx->fill_rect(engine_cx - 100, engine_cy - 120, 200, line_thickness, coolant_color);
-
-  // Left line
-  gfx->fill_rect(engine_cx - 100, engine_cy - 120, line_thickness, 100, coolant_color);
-
-  // Right line
-  gfx->fill_rect(engine_cx + 96, engine_cy - 120, line_thickness, 100, coolant_color);
-}
-
 // Draw battery with vertical fill level
 void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
   // For now, use throttle as a placeholder for battery level
@@ -233,7 +203,6 @@ void GUI::init() {
 
   // Turbo: (128, 0) to (255, 127) = 128x128
   spr_turbo_housing = {128, 0, 128, 128};
-  spr_turbo_blades = {128, 0, 128, 128};  // Same as housing for now
 
   // Intercooler: (0, 128) to (319, 223) = 320x96
   spr_intercooler = {0, 128, 320, 96};
