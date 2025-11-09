@@ -1,6 +1,8 @@
 # EJ-Mon
 OBD-II and CAN bus monitoring device designed specifically for 2008-14 Subaru WRX (EJ motor)
 
+![EJ-Mon Demo](./screenshots/ej-mon-demo.gif)
+
 ## Basic Features / Characteristics
 - Single din form factor
 - It will have a 4.58" 320x960 pixel display for graphs and animations based on the cars operatting parameters.

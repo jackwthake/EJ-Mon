@@ -258,7 +258,7 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   constexpr int engine_cx = 480;
   constexpr int engine_cy = 230;
   constexpr int turbo_cx = 150;
-  constexpr int turbo_cy = 170;
+  constexpr int turbo_cy = 200;
   constexpr int ic_cx = 480;
   constexpr int ic_cy = 80;
   constexpr int battery_cx = 800;
