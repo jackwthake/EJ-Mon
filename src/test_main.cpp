@@ -11,6 +11,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 #include <chrono>
 #include <thread>
 #include <SDL3/SDL.h>
@@ -39,6 +40,7 @@ static void interpolate_engine_data(EngineData& interpolated, const EngineData& 
   interpolated.knock_count = target.knock_count;
   interpolated.knock_detected = target.knock_detected;
   interpolated.overboost = target.overboost;
+  interpolated.battery_voltage = target.battery_voltage;
 }
 
 //==============================================================================
@@ -96,6 +98,8 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
 
   // CAN data playback timing
   auto playback_start = Clock::now();
+  auto loop_start = playback_start;  // Track when current loop started
+  uint32_t loop_offset_ms = 0;       // Accumulated time from previous loops
 
   printf("\n--- Starting CAN data replay ---\n");
   printf("Simulating ESP32-S3 @ 240MHz performance constraints\n\n");
@@ -112,8 +116,8 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
       }
     }
 
-    // Calculate elapsed time since playback started
-    auto elapsed = std::chrono::duration_cast<Ms>(frame_start - playback_start);
+    // Calculate elapsed time since current loop started
+    auto elapsed = std::chrono::duration_cast<Ms>(frame_start - loop_start);
     uint32_t elapsed_ms = elapsed.count();
 
     // Read and process CAN frames up to current elapsed time
@@ -125,9 +129,13 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
       long pos = ftell(can_file);
       if (!fgets(line, sizeof(line), can_file)) {
         // End of file, rewind to loop
+        // Save the duration of this loop and start a new one
+        auto loop_duration = std::chrono::duration_cast<Ms>(frame_start - loop_start);
+        loop_offset_ms += loop_duration.count();
+        loop_start = frame_start;
+
         rewind(can_file);
-        playback_start = frame_start; // Reset playback timer
-        printf("\n--- Looping CAN data ---\n\n");
+        printf("\n--- Looping CAN data (total time: %.1fs) ---\n\n", (loop_offset_ms / 1000.0f));
         continue;
       }
 
@@ -153,9 +161,13 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
     // Smooth interpolation for display values
     interpolate_engine_data(engine_data_interpolated, engine_data, interpolation_speed);
 
-    // Calculate time in seconds for animations
+    // Calculate total time in seconds for animations (including all previous loops)
     auto time_elapsed = std::chrono::duration_cast<Micros>(frame_start - playback_start);
-    float time_s = time_elapsed.count() / 1000000.0f;
+    float time_s = (time_elapsed.count() / 1000000.0f) + (loop_offset_ms / 1000.0f);
+
+    // Desktop only: Set battery voltage using cosine wave (12V to 14V range)
+    // Oscillates slowly over ~10 seconds
+    engine_data_interpolated.battery_voltage = 13.0f + cosf(time_s * 0.6f) * 1.0f;
 
     // Render frame (background sprite acts as clear)
     gui.render(gfx, engine_data_interpolated, time_s);

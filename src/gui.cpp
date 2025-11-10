@@ -35,8 +35,8 @@ static Color lerp_color(Color c1, Color c2, float t) {
 // GUI Component Drawing Functions
 //==============================================================================
 
-// Draw EJ engine sprite with coolant temperature color
-void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
+// Draw EJ engine sprite with coolant temperature color and firing order animation
+void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
   // Color based on coolant temp: blue (cold) -> green -> yellow -> red (hot)
   // Typical range: 0°C to 120°C
   float temp_normalized = data.coolant_temp / 120.0f;
@@ -52,17 +52,37 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
     coolant_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
   }
 
-  // Draw engine sprite with color replacement for magenta areas
+  // Calculate which timing mark should be active based on RPM
+  // 30 timing marks going clockwise: RGB(0,100,0) to RGB(0,216,0) in steps of 4
+  const int NUM_TIMING_MARKS = 30;
+
+  // Calculate increment speed based on RPM
+  // At 6000 RPM, we want smooth but visible motion
+  // Speed factor determines how many marks to advance per frame at max RPM
+  float rpm_normalized = data.rpm / 6000.0f;  // Normalize to 0-1 range
+  float speed_factor = rpm_normalized * 1.1f;  // Adjust this to tune speed (1.1 = ~6 marks/sec at 6000 RPM @60fps)
+
+  // Accumulate fractional increments
+  timing_mark_accumulator += speed_factor;
+
+  // When accumulator >= 1.0, increment the active mark
+  if (timing_mark_accumulator >= 1.0f) {
+    int steps = (int)timing_mark_accumulator;
+    active_timing_mark = (active_timing_mark + steps) % NUM_TIMING_MARKS;
+    timing_mark_accumulator -= steps;
+  }
+
+  // Draw engine sprite with sequential green shades
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  atlas.draw_with_color(fb, fb_w, fb_h, spr_motor_block,
-                        cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
-                        coolant_color);
+  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_block,
+                                  cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
+                                  coolant_color, active_timing_mark, NUM_TIMING_MARKS);
 }
 
-// Draw turbo sprite with boost-based color
+// Draw turbo sprite with boost-based color and scaling
 void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
   // Color interpolation: green (low boost) -> yellow (moderate boost) -> red (high boost)
   // Boost range: -15 to +20 PSI
@@ -73,20 +93,24 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   Color turbo_color = Theme::GREEN;
   if (boost_normalized < 0.5f) {
     // Green -> Yellow (0% to 50%)
-    turbo_color = lerp_color(Theme::GREEN, Theme::YELLOW, boost_normalized * 2.0f);
+    turbo_color = lerp_color(Theme::BLUE, Theme::WHITE, boost_normalized * 2.0f);
   } else {
     // Yellow -> Red (50% to 100%)
-    turbo_color = lerp_color(Theme::YELLOW, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
+    turbo_color = lerp_color(Theme::WHITE, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
   }
 
-  // Draw turbo sprite with color replacement for magenta areas
+  // Scale based on boost with ease-in (quadratic)
+  // Scale from 1.0 (no boost) to 1.5 (max boost)
+  float scale_t = boost_normalized * boost_normalized;  // Ease-in quadratic
+  float scale = 1.0f + (scale_t * 0.5f);  // 1.0 to 1.5
+
+  // Draw turbo sprite with color replacement and scaling
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  atlas.draw_with_color(fb, fb_w, fb_h, spr_turbo_housing,
-                        cx - spr_turbo_housing.w/2, cy - spr_turbo_housing.h/2,
-                        turbo_color);
+  atlas.draw_with_color_scaled(fb, fb_w, fb_h, spr_turbo_housing,
+                                cx, cy, turbo_color, scale);
 }
 
 // Draw intercooler with temperature-based color
@@ -163,9 +187,10 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
 
 // Draw battery with vertical fill level
 void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
-  // For now, use throttle as a placeholder for battery level
-  // TODO: Add voltage field to EngineData and map 11V-14.5V to 0-100%
-  float battery_level = data.throttle / 100.0f;  // 0.0 to 1.0
+  // Map battery voltage (12V-14V) to fill level (0.0-1.0)
+  float battery_level = (data.battery_voltage - 12.0f) / 2.0f;  // 12V=0.0, 14V=1.0
+  if (battery_level < 0.0f) battery_level = 0.0f;
+  if (battery_level > 1.0f) battery_level = 1.0f;
 
   // Color based on level: red (low) -> yellow (medium) -> green (full)
   Color bat_color = Theme::GREEN;

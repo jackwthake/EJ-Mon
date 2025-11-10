@@ -29,6 +29,7 @@ struct EngineData {
   int8_t timing_adv;     // Timing advance (degrees)
   uint8_t engine_load;   // Engine load (%)
   uint8_t maf_gs;        // Mass air flow (g/s)
+  float battery_voltage; // Battery voltage (V)
 
   // Flags
   bool knock_detected;

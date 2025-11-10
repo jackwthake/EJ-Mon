@@ -181,6 +181,58 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
   }
 }
 
+// Draw sprite with color replacement and scaling (centered at cx, cy)
+void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
+                                          const Sprite& sprite, int cx, int cy,
+                                          Color replace_color, float scale) {
+  if (!pixels) return;
+  if (scale <= 0.0f) return;
+
+  // Calculate scaled dimensions
+  int scaled_w = (int)(sprite.w * scale);
+  int scaled_h = (int)(sprite.h * scale);
+
+  // Calculate top-left position (centered on cx, cy)
+  int x = cx - scaled_w / 2;
+  int y = cy - scaled_h / 2;
+
+  // Draw scaled sprite using nearest-neighbor sampling
+  for (int dy = 0; dy < scaled_h; dy++) {
+    int screen_y = y + dy;
+    if (screen_y < 0 || screen_y >= fb_h) continue;
+
+    // Map screen y to sprite y (inverse scale)
+    int src_y = (int)((float)dy / scale);
+    if (src_y >= sprite.h) src_y = sprite.h - 1;
+
+    for (int dx = 0; dx < scaled_w; dx++) {
+      int screen_x = x + dx;
+      if (screen_x < 0 || screen_x >= fb_w) continue;
+
+      // Map screen x to sprite x (inverse scale)
+      int src_x = (int)((float)dx / scale);
+      if (src_x >= sprite.w) src_x = sprite.w - 1;
+
+      int atlas_x = sprite.x + src_x;
+      int atlas_y = sprite.y + src_y;
+
+      if (atlas_x >= width || atlas_y >= height) continue;
+
+      uint16_t color = pixels[atlas_y * width + atlas_x];
+
+      // Skip black (transparent) pixels
+      if (color == BLACK_RGB565) continue;
+
+      // Replace magenta with the specified color
+      if (color == MAGENTA_RGB565) {
+        color = replace_color.value;
+      }
+
+      fb[screen_y * fb_w + screen_x] = color;
+    }
+  }
+}
+
 // Draw sprite rotated around center point
 void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
                                const Sprite& sprite, int cx, int cy,
@@ -224,6 +276,139 @@ void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
       if (transparent && color == BLACK_RGB565) continue;
 
       fb[(int)screen_y * fb_w + (int)screen_x] = color;
+    }
+  }
+}
+
+// Draw sprite with multiple color replacements (magenta + green)
+void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
+                                    const Sprite& sprite, int x, int y,
+                                    Color magenta_replacement, Color green_replacement) {
+  if (!pixels) return;
+
+  // Clip to screen bounds
+  int sx = 0, sy = 0;
+  int w = sprite.w, h = sprite.h;
+
+  if (x < 0) { sx = -x; w += x; x = 0; }
+  if (y < 0) { sy = -y; h += y; y = 0; }
+  if (x + w > fb_w) w = fb_w - x;
+  if (y + h > fb_h) h = fb_h - y;
+
+  if (w <= 0 || h <= 0) return;
+
+  // Draw sprite
+  for (int dy = 0; dy < h; dy++) {
+    for (int dx = 0; dx < w; dx++) {
+      int atlas_x = sprite.x + sx + dx;
+      int atlas_y = sprite.y + sy + dy;
+
+      if (atlas_x >= width || atlas_y >= height) continue;
+
+      uint16_t color = pixels[atlas_y * width + atlas_x];
+
+      // Skip black (transparent) pixels
+      if (color == BLACK_RGB565) continue;
+
+      // Replace magenta with the specified color
+      if (color == MAGENTA_RGB565) {
+        color = magenta_replacement.value;
+      }
+      // Replace green with the specified color
+      else if (color == GREEN_RGB565) {
+        color = green_replacement.value;
+      }
+
+      fb[(y + dy) * fb_w + (x + dx)] = color;
+    }
+  }
+}
+
+// Draw sprite with sequential green shades for timing marks
+void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
+                                            const Sprite& sprite, int x, int y,
+                                            Color magenta_replacement,
+                                            int active_index, int num_shades) {
+  if (!pixels) return;
+
+  // Clip to screen bounds
+  int sx = 0, sy = 0;
+  int w = sprite.w, h = sprite.h;
+
+  if (x < 0) { sx = -x; w += x; x = 0; }
+  if (y < 0) { sy = -y; h += y; y = 0; }
+  if (x + w > fb_w) w = fb_w - x;
+  if (y + h > fb_h) h = fb_h - y;
+
+  if (w <= 0 || h <= 0) return;
+
+  // Calculate RGB565 values for green shades
+  // Green ranges from RGB(0, 100, 0) to RGB(0, 216, 0) in steps of 4
+  // For 30 shades: 100, 104, 108, ..., 216 (step of 4)
+  // Step of 4 ensures each shade maps to unique RGB565 value (6-bit green = 64 levels)
+  const int GREEN_START = 100;
+  const int GREEN_STEP = 4;
+
+  // Pre-calculate RGB565 values for each shade
+  uint16_t green_rgb565[32];  // Support up to 32 shades
+  for (int i = 0; i < num_shades && i < 32; i++) {
+    int g = GREEN_START + i * GREEN_STEP;  // 100, 104, 108, ..., 216
+    uint16_t g6 = (g >> 2) & 0x3F;
+    green_rgb565[i] = (0 << 11) | (g6 << 5) | 0;
+  }
+
+  // Light gray for inactive marks
+  const uint16_t LIGHT_GRAY_RGB565 = ((200 >> 3) << 11) | ((200 >> 2) << 5) | (200 >> 3);
+  // Dimmer green for trailing mark
+  const uint16_t DIM_GREEN_RGB565 = (0 << 11) | (40 << 5) | 0;  // RGB(0, 160, 0) approx
+
+  // Calculate previous index (the one behind the active mark)
+  int prev_index = (active_index - 1 + num_shades) % num_shades;
+
+  // Draw sprite
+  for (int dy = 0; dy < h; dy++) {
+    for (int dx = 0; dx < w; dx++) {
+      int atlas_x = sprite.x + sx + dx;
+      int atlas_y = sprite.y + sy + dy;
+
+      if (atlas_x >= width || atlas_y >= height) continue;
+
+      uint16_t color = pixels[atlas_y * width + atlas_x];
+
+      // Skip black (transparent) pixels
+      if (color == BLACK_RGB565) continue;
+
+      // Replace magenta with the specified color
+      if (color == MAGENTA_RGB565) {
+        color = magenta_replacement.value;
+      }
+      // Check if this is a green shade and replace accordingly
+      else {
+        bool is_green_shade = false;
+        bool is_active_mark = false;
+
+        for (int i = 0; i < num_shades && i < 32; i++) {
+          if (color == green_rgb565[i]) {
+            is_green_shade = true;
+            if (i == active_index) {
+              color = GREEN_RGB565;  // Bright green for active
+              is_active_mark = true;
+            } else if (i == prev_index) {
+              color = DIM_GREEN_RGB565;  // Dim green for previous mark
+              is_active_mark = true;
+            }
+            
+            break;  // Found the shade, exit loop
+          }
+        }
+
+        // Skip drawing non-active timing marks
+        if (is_green_shade && !is_active_mark) {
+          continue;
+        }
+      }
+
+      fb[(y + dy) * fb_w + (x + dx)] = color;
     }
   }
 }

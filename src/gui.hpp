@@ -4,7 +4,7 @@
 #include "graphics/sprite.hpp"
 #include "can/can_parser.h"
 
-constexpr uint16_t SHIFT_LIGHT_RPM = 4500;  // RPM to start shift light
+constexpr uint16_t SHIFT_LIGHT_RPM = 5500;  // RPM to start shift light
 
 // GUI state and rendering for EJ-Mon
 class GUI {
@@ -28,6 +28,10 @@ private:
   Sprite spr_cam_gear;
 
   bool last_frame_above_shift_rpm = false;
+
+  // Timing mark animation state
+  float timing_mark_accumulator = 0.0f;  // Accumulates fractional increments
+  int active_timing_mark = 0;             // Current active mark (0-29)
 
   // Helper functions for drawing individual components
   void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
