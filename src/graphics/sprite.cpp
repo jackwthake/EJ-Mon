@@ -455,3 +455,53 @@ void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
     }
   }
 }
+
+
+void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, int value, int expected_length, Color color) {
+  if (!pixels) return;
+
+  const int padding_between_digits = 2;  // Pixels between digits
+
+  // Convert value to string to extract digits
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%d", value);
+  int len = strlen(buffer);
+
+  if (len <= 0) return;
+
+  if (len < expected_length) {
+    // Pad with leading zeros
+    int padding = expected_length - len;
+    for (int i = expected_length - 1; i >= padding; i--) {
+      buffer[i] = buffer[i - padding];
+    }
+    for (int i = 0; i < padding; i++) {
+      buffer[i] = '0';
+    }
+    buffer[expected_length] = '\0';
+    len = expected_length;
+  }
+
+  // Draw each digit
+  for (int i = 0; i < len && i < NUM_DIGITS; i++) {
+    char ch = buffer[i];
+    if ((ch < '0' || ch > '9') && (ch != '-' && ch != '.' && ch != '%')) continue;  // Skip non-digit characters
+
+    int digit_index = ch - '0';
+    if (ch == '-') {
+      digit_index = 10;  // Minus sign
+    } else if (ch == '.') {
+      digit_index = 11;  // Decimal point
+    } else if (ch == '%') {
+      digit_index = 12;  // Percentage sign
+    }
+
+    const Sprite& digit_sprite = digit_sprites[digit_index];
+
+    // Draw the digit sprite with color replacement
+    draw_with_color(fb, fb_w, fb_h, digit_sprite, x, y, color);
+
+    // Advance x position for next digit
+    x += digit_sprite.w + padding_between_digits;
+  }
+}

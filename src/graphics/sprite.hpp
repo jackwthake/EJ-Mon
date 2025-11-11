@@ -61,6 +61,9 @@ public:
                                  const Sprite& sprite, int x, int y,
                                  Color magenta_replacement, Color active_tick,
                                  int active_index, int num_shades);
+  
+  void draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h,
+                          int x, int y, int value, int expected_length, Color color);
 
   // Get atlas dimensions
   int get_width() const { return width; }
@@ -70,6 +73,26 @@ private:
   uint16_t* pixels;  // RGB565 pixel data
   int width;
   int height;
+
+  // Digit sprites for numbers 0-9 and symbols
+  static constexpr int DIGIT_WIDTH = 48;
+  static constexpr int DIGIT_HEIGHT = 80;
+  static constexpr int NUM_DIGITS = 13;  // 0-9, minus, minus decimal point and percentage
+  Sprite digit_sprites[NUM_DIGITS] = {
+    {0, 432, DIGIT_WIDTH, DIGIT_HEIGHT},     // '0'
+    {DIGIT_WIDTH * 1, 432, DIGIT_WIDTH, DIGIT_HEIGHT},    // '1'
+    {DIGIT_WIDTH * 2, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '2'
+    {DIGIT_WIDTH * 3, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '3'
+    {DIGIT_WIDTH * 4, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '4'
+    {DIGIT_WIDTH * 5, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '5'
+    {DIGIT_WIDTH * 6, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '6'
+    {DIGIT_WIDTH * 7, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '7'
+    {DIGIT_WIDTH * 8, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '8'
+    {DIGIT_WIDTH * 9, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '9'
+    {DIGIT_WIDTH * 0, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '-' minus sign
+    {DIGIT_WIDTH * 10, 432, DIGIT_WIDTH, DIGIT_HEIGHT},   // '.' decimal point
+    {DIGIT_WIDTH * 11, 432, DIGIT_WIDTH, DIGIT_HEIGHT}    // '%' percentage sign
+  };
 
   // Magenta color used for masking (RGB 255, 0, 255)
   // RGB565 conversion: R=255>>3=31, G=0>>2=0, B=255>>3=31

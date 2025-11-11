@@ -393,6 +393,24 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
   gfx->fill_rect(screen_w - half_fill, bar_y, half_fill, bar_h, bar_color);
 }
 
+void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data) {
+  const int label_x = cx - 140;
+
+  // Draw RPM label
+  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+              spr_rpm_label, label_x, cy - 40, true);
+  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x, cy - 128, data.rpm, 2, Theme::WHITE);
+  // Draw Temp label
+  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+              spr_temp_label, label_x, cy + 86, true);
+
+  // convert to fahrenheit for display
+  int temp_display = (int)(data.coolant_temp * 9.0f / 5.0f + 32.0f);
+  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x, cy, temp_display, 3, Theme::CYAN);
+}
+
 //==============================================================================
 // Public GUI Methods
 //==============================================================================
@@ -429,6 +447,14 @@ void GUI::init(Graphics* gfx) {
 
   // Overboost warning: (192, 368) to (477, 428) = 285x60
   spr_overboost_warning = {192, 368, 285, 60};
+
+  spr_rpm_label = {416, 0, 128, 32};
+
+  spr_boost_label = {416, 64, 224, 32};
+
+  spr_temp_label = {416, 128, 252, 32};
+
+  spr_battery_label = {416, 192, 248, 32};
 
   printf("GUI sprites initialized\n");
 
@@ -478,13 +504,15 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   constexpr int turbo_cx = 310;
   constexpr int turbo_cy = 80;
   constexpr int ic_cx = 480;
-  constexpr int ic_cy = 75;
+  constexpr int ic_cy = 70;
   constexpr int intake_cx = 477;
   constexpr int intake_cy = 130;  // Between intercooler and engine
   constexpr int battery_cx = 810;
-  constexpr int battery_cy = 200;
-  constexpr int cubes_cx = 130;
-  constexpr int cubes_cy = 200;
+  constexpr int battery_cy = 230;
+  constexpr int cubes_cx = 810;
+  constexpr int cubes_cy = 110;
+  constexpr int labels_cx = 160;
+  constexpr int labels_cy = 180;
 
   draw_top_rpm_bar(gfx, data);
 
@@ -496,6 +524,7 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
   draw_battery(gfx, battery_cx, battery_cy, data);
+  draw_engine_param_labels(gfx, labels_cx, labels_cy, data);
 
   // Draw warning messages on top of everything
   if (data.knock_detected) {

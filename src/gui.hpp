@@ -38,6 +38,12 @@ private:
   Sprite spr_knock_warning;
   Sprite spr_overboost_warning;
 
+  // label sprites
+  Sprite spr_rpm_label;
+  Sprite spr_boost_label;
+  Sprite spr_temp_label;
+  Sprite spr_battery_label;
+
   renderer_t renderer_state;
 
   bool last_frame_above_shift_rpm = false;
@@ -65,4 +71,5 @@ private:
   void draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s);
   void draw_top_rpm_bar(Graphics* gfx, const EngineData& data);
+  void draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data);
 };
