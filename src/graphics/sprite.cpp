@@ -327,7 +327,7 @@ void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite with sequential green shades for timing marks
 void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
                                             const Sprite& sprite, int x, int y,
-                                            Color magenta_replacement,
+                                            Color magenta_replacement, Color active_tick_col,
                                             int active_index, int num_shades) {
   if (!pixels) return;
 
@@ -391,10 +391,7 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
           if (color == green_rgb565[i]) {
             is_green_shade = true;
             if (i == active_index) {
-              color = GREEN_RGB565;  // Bright green for active
-              is_active_mark = true;
-            } else if (i == prev_index) {
-              color = DIM_GREEN_RGB565;  // Dim green for previous mark
+              color = active_tick_col.value;  // Bright green for active
               is_active_mark = true;
             }
             

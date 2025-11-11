@@ -2,9 +2,43 @@
 #include "graphics/gfx_types.hpp"
 #include "graphics/sprite.hpp"
 #include <cmath>
+#include <cfloat>
 #include <cstdio>
 #include <iostream>
 
+extern "C" {
+#include <shader-works/renderer.h>
+#include <shader-works/primitives.h>
+#include <shader-works/maths.h>
+}
+
+//==============================================================================
+// shader-works Color Conversion Functions
+//==============================================================================
+// Required by shader-works for pixel format conversion
+// Note: shader-works uses u32 internally, we convert to/from RGB565
+
+// Convert RGB888 to RGB565 (packed as u32)
+u32 rgb_to_u32(u8 r, u8 g, u8 b) {
+  // Convert 8-bit RGB to 5-6-5 format
+  u32 r5 = (r >> 3) & 0x1F;  // 5 bits for red
+  u32 g6 = (g >> 2) & 0x3F;  // 6 bits for green
+  u32 b5 = (b >> 3) & 0x1F;  // 5 bits for blue
+  return (r5 << 11) | (g6 << 5) | b5;
+}
+
+// Convert RGB565 (packed as u32) to RGB888
+void u32_to_rgb(u32 color, u8 *r, u8 *g, u8 *b) {
+  // Extract RGB565 components
+  u32 r5 = (color >> 11) & 0x1F;
+  u32 g6 = (color >> 5) & 0x3F;
+  u32 b5 = color & 0x1F;
+
+  // Convert back to 8-bit (with proper scaling to preserve full range)
+  *r = (r5 << 3) | (r5 >> 2);  // 5-bit to 8-bit
+  *g = (g6 << 2) | (g6 >> 4);  // 6-bit to 8-bit
+  *b = (b5 << 3) | (b5 >> 2);  // 5-bit to 8-bit
+}
 
 //==============================================================================
 // Helper Functions
@@ -79,7 +113,87 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
 
   atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_block,
                                   cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
-                                  coolant_color, active_timing_mark, NUM_TIMING_MARKS);
+                                  coolant_color, Theme::GREEN, active_timing_mark, NUM_TIMING_MARKS);
+}
+
+void GUI::draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data) {
+  // Clear buffers
+  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
+    color_buffer[i] = 0x000000;  // Black background
+    depth_buffer[i] = FLT_MAX;
+  }
+
+  // Create camera transform
+  transform_t camera = {0};
+  camera.position = make_float3(0.0f, 0.0f, 0.0f);
+  camera.yaw = 0.0f;
+  camera.pitch = 0.0f;
+  update_camera(&renderer_state, &camera);
+
+  // Enable wireframe mode
+  renderer_state.wireframe_mode = true;
+
+  // Base rotation speed (at 60 FPS, this gives nice continuous motion)
+  const float BASE_SPEED = 0.1f;
+  const float BASE_CUBE_SIZE = 4.0f;
+  const float CUBE_DEPTH = -15.0f;  // Further back to prevent clipping
+
+  // Cube 1: Throttle affects rotation speed and size
+  float throttle_normalized = data.throttle / 100.0f;
+  float throttle_speed = throttle_normalized * 2.0f + 0.5f;  // 0.5x to 2.5x speed
+  float cube1_size = BASE_CUBE_SIZE + throttle_normalized * 2.0f;  // 4.0 to 6.0 units
+  cube1_yaw += BASE_SPEED * throttle_speed * 1.3f;
+  cube1_pitch += BASE_SPEED * throttle_speed * 0.7f;
+
+  model_t cube1 = {0};
+  generate_cube(&cube1, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube1_size, cube1_size, cube1_size));
+  cube1.transform.yaw = cube1_yaw;
+  cube1.transform.pitch = cube1_pitch;
+  render_model(&renderer_state, &camera, &cube1, NULL, 0);
+  delete_model(&cube1);
+
+  // Clear only the depth buffer to prevent clipping between cubes
+  // Keep color buffer so wireframes accumulate
+  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
+    depth_buffer[i] = FLT_MAX;
+  }
+
+  // Cube 2: Load affects rotation speed and size - rotates on both axes differently
+  // Engine load in CAN data ranges from ~20% (idle) to ~130% (full throttle)
+  // Map this to 0.0-1.0 for better visual variation
+  float load_normalized = (data.engine_load - 20.0f) / 110.0f;  // 20-130% -> 0.0-1.0
+  if (load_normalized < 0.0f) load_normalized = 0.0f;
+  if (load_normalized > 1.0f) load_normalized = 1.0f;
+  float load_speed = load_normalized * 2.0f + 0.4f;  // 0.4x to 2.4x speed
+  float cube2_size = BASE_CUBE_SIZE + load_normalized * 2.2f;  // 4.0 to 6.2 units
+  cube2_yaw += BASE_SPEED * load_speed * 0.8f;
+  cube2_pitch += BASE_SPEED * load_speed * 1.5f;
+
+  model_t cube2 = {0};
+  generate_cube(&cube2, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube2_size * 0.75f, cube2_size * 0.75f, cube2_size * 0.75f));
+  cube2.transform.yaw = cube2_yaw;
+  cube2.transform.pitch = cube2_pitch;
+  render_model(&renderer_state, &camera, &cube2, NULL, 0);
+  delete_model(&cube2);
+
+  // Blit the color buffer to the framebuffer at (cx, cy)
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+
+  for (int y = 0; y < CUBES_DISPLAY_HEIGHT; ++y) {
+    for (int x = 0; x < CUBES_DISPLAY_WIDTH; ++x) {
+      int screen_x = cx + x - CUBES_DISPLAY_WIDTH / 2;
+      int screen_y = cy + y - CUBES_DISPLAY_HEIGHT / 2;
+
+      if (screen_x >= 0 && screen_x < fb_w && screen_y >= 0 && screen_y < fb_h) {
+        u32 pixel = color_buffer[y * CUBES_DISPLAY_WIDTH + x];
+        // Convert from u32 to RGB565 (already handled by our conversion functions)
+        if (pixel == 0x000000) continue;  // Skip black pixels (background)
+        fb[screen_y * fb_w + screen_x] = (uint16_t)pixel;
+      }
+    }
+  }
 }
 
 // Draw turbo sprite with boost-based color and scaling
@@ -111,6 +225,38 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
 
   atlas.draw_with_color_scaled(fb, fb_w, fb_h, spr_turbo_housing,
                                 cx, cy, turbo_color, scale);
+}
+
+// Draw intake manifold with throttle-based tick animation
+void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& data) {
+  // 5 ticks that continuously cycle through, speed controlled by throttle
+  const int NUM_TICKS = 5;
+
+  // Calculate animation speed based on throttle (0-100%)
+  float throttle_normalized = data.throttle / 100.0f;  // Normalize to 0-1
+  float speed_factor = 0.1f + (throttle_normalized * 0.8f);  // ~2.5 cycles/sec at 100% throttle @60fps
+
+  // Accumulate fractional increments
+  intake_tick_accumulator += speed_factor;
+
+  // When accumulator >= 1.0, increment the active tick
+  if (intake_tick_accumulator >= 1.0f) {
+    int steps = (int)intake_tick_accumulator;
+    active_intake_tick = (active_intake_tick + steps) % NUM_TICKS;
+    intake_tick_accumulator -= steps;
+  }
+
+  // Use white for the sprite body (replaces magenta)
+  Color tick_color = Theme::CYAN;
+
+  // Draw intake manifold sprite with green tick sequence
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+
+  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_intake_manifold,
+                                  cx - spr_intake_manifold.w/2, cy - spr_intake_manifold.h/2,
+                                  Theme::BLACK, tick_color, active_intake_tick, NUM_TICKS);
 }
 
 // Draw intercooler with temperature-based color
@@ -167,16 +313,16 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   // Cam gear positions relative to engine sprite (centers)
   // Positions given: (43, 39), (348, 49), (42, 134), (348, 134)
   int gear1_x = engine_left + 40;
-  int gear1_y = engine_top + 39;
+  int gear1_y = engine_top + 41;
 
   int gear2_x = engine_left + 345;
-  int gear2_y = engine_top + 39;
+  int gear2_y = engine_top + 41;
 
   int gear3_x = engine_left + 40;
-  int gear3_y = engine_top + 135;
+  int gear3_y = engine_top + 137;
 
   int gear4_x = engine_left + 345;
-  int gear4_y = engine_top + 134;
+  int gear4_y = engine_top + 137;
 
   // Draw all 4 cam gears rotating at the same speed
   atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true);
@@ -187,8 +333,8 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
 
 // Draw battery with vertical fill level
 void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
-  // Map battery voltage (12V-14V) to fill level (0.0-1.0)
-  float battery_level = (data.battery_voltage - 12.0f) / 2.0f;  // 12V=0.0, 14V=1.0
+  // Map battery voltage (10V-15V) to fill level (0.0-1.0)
+  float battery_level = (data.battery_voltage - 10.0f) / 5.0f;  // 10V=0.0, 15V=1.0
   if (battery_level < 0.0f) battery_level = 0.0f;
   if (battery_level > 1.0f) battery_level = 1.0f;
 
@@ -251,15 +397,10 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
 // Public GUI Methods
 //==============================================================================
 
-void GUI::init() {
+void GUI::init(Graphics* gfx) {
   // Load sprite atlas
   if (!atlas.load_from_file("res/atlas.bmp")) {
     fprintf(stderr, "Failed to load sprite atlas!\n");
-  }
-
-  // Load background
-  if (!background.load_from_file("res/background.bmp")) {
-    fprintf(stderr, "Failed to load background!\n");
   }
 
   // Define sprite positions in atlas (from SVG export)
@@ -269,18 +410,31 @@ void GUI::init() {
   spr_battery = {0, 0, 128, 96};
 
   // Turbo: (128, 0) to (255, 127) = 128x128
-  spr_turbo_housing = {128, 0, 127, 128};
+  spr_turbo_housing = {128, 0, 124, 92};
 
   // Intercooler: (0, 128) to (319, 223) = 320x96
-  spr_intercooler = {0, 128, 320, 96};
+  spr_intercooler = {256, 64, 151, 64};
 
   // Engine: (0, 224) to (383, 415) = 384x192
-  spr_motor_block = {0, 224, 384, 192};
+  spr_motor_block = {0, 176, 384, 192};
 
   // Cam gear: (256, 0) to (319, 63) = 64x64
   spr_cam_gear = {256, 0, 64, 64};
 
+  // Intake manifold: (0, 128) to (248, 201) = 248x73
+  spr_intake_manifold = {0, 96, 248, 73};
+
+  // Knock warning: (0, 368) to (179, 428) = 179x60
+  spr_knock_warning = {0, 368, 179, 60};
+
+  // Overboost warning: (192, 368) to (477, 428) = 285x60
+  spr_overboost_warning = {192, 368, 285, 60};
+
   printf("GUI sprites initialized\n");
+
+  // Initialize shader-works
+  init_renderer(&renderer_state, CUBES_DISPLAY_WIDTH, CUBES_DISPLAY_HEIGHT, 0, 0, 
+                color_buffer, depth_buffer, 15.f);
 }
 
 static constexpr Color SHIFT_LIGHT_COLORS[] = { 
@@ -318,33 +472,37 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   gfx->clear(bg_color);
 
   // Layout centers (for 960x320 screen)
+  // Wabi Sabi ui design lol 
   constexpr int engine_cx = 480;
   constexpr int engine_cy = 230;
-  constexpr int turbo_cx = 140;
-  constexpr int turbo_cy = 220;
+  constexpr int turbo_cx = 310;
+  constexpr int turbo_cy = 80;
   constexpr int ic_cx = 480;
   constexpr int ic_cy = 75;
+  constexpr int intake_cx = 477;
+  constexpr int intake_cy = 130;  // Between intercooler and engine
   constexpr int battery_cx = 810;
-  constexpr int battery_cy = 250;
+  constexpr int battery_cy = 200;
+  constexpr int cubes_cx = 130;
+  constexpr int cubes_cy = 200;
 
-  // Draw top RPM bar (Assetto Corsa style)
   draw_top_rpm_bar(gfx, data);
 
   // Draw all components
+  draw_intake_manifold(gfx, intake_cx, intake_cy, data);
   draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
   draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
+  draw_cubes(gfx, cubes_cx, cubes_cy, data);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
   draw_battery(gfx, battery_cx, battery_cy, data);
 
-  // Warning indicators (moved down below RPM bar)
+  // Draw warning messages on top of everything
   if (data.knock_detected) {
-    gfx->fill_rect(45, 30, 180, 50, Theme::YELLOW);
-    gfx->draw_text("!KNOCK!", 70, 40, 5, Theme::BLACK);
+    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, 30, 30, true);
   }
 
   if (data.overboost) {
-    gfx->fill_rect(200, 30, 280, 50, Theme::MAGENTA);
-    gfx->draw_text("!OVERBOOST!", 210, 35, 5, Theme::BLACK);
+    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, 645, 30, true);
   }
 }

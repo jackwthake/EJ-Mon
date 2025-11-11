@@ -28,6 +28,17 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
 
   add_subdirectory(third-party/SDL)
 
+  # shader-works configuration - always build in Release mode for performance
+  set(SHADER_WORKS_USE_THREADS OFF CACHE BOOL "Disable threading in shader-works" FORCE)
+  set(SHADER_WORKS_BUILD_EXAMPLES OFF CACHE BOOL "Don't build shader-works examples" FORCE)
+  set(SHADER_WORKS_BUILD_DEMOS OFF CACHE BOOL "Don't build shader-works demos" FORCE)
+
+  # Force Release mode for shader-works subdirectory
+  set(CMAKE_BUILD_TYPE_SAVED ${CMAKE_BUILD_TYPE})
+  set(CMAKE_BUILD_TYPE Release)
+  add_subdirectory(lib/shader-works)
+  set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_SAVED})
+
   # Main executable - uses test_main.cpp for desktop
   add_executable(ej-mon
     src/test_main.cpp
@@ -41,6 +52,7 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
 
   target_link_libraries(ej-mon PRIVATE
     SDL3::SDL3-static
+    shader-works
   )
 
   target_include_directories(ej-mon PRIVATE

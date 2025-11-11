@@ -62,7 +62,7 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
 
   // Initialize GUI
   GUI gui;
-  gui.init();
+  gui.init(gfx);
 
   // Open CAN test data file
   FILE* can_file = fopen("test-data/can_data_sample.txt", "r");
@@ -165,9 +165,9 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
     auto time_elapsed = std::chrono::duration_cast<Micros>(frame_start - playback_start);
     float time_s = (time_elapsed.count() / 1000000.0f) + (loop_offset_ms / 1000.0f);
 
-    // Desktop only: Set battery voltage using cosine wave (12V to 14V range)
-    // Oscillates slowly over ~10 seconds
-    engine_data_interpolated.battery_voltage = 13.0f + cosf(time_s * 0.6f) * 1.0f;
+    // Desktop only: Set battery voltage using cosine wave (12.5V to 15V range)
+    // Oscillates slowly over ~10 seconds, showing 50-100% battery level
+    engine_data_interpolated.battery_voltage = 13.75f + cosf(time_s * 0.6f) * 1.25f;
 
     // Render frame (background sprite acts as clear)
     gui.render(gfx, engine_data_interpolated, time_s);

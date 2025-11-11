@@ -59,7 +59,7 @@ public:
   // active_index = which shade should be bright green, others become dark gray
   void draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
                                  const Sprite& sprite, int x, int y,
-                                 Color magenta_replacement,
+                                 Color magenta_replacement, Color active_tick,
                                  int active_index, int num_shades);
 
   // Get atlas dimensions

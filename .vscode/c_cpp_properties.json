@@ -7,6 +7,11 @@
       "compilerPath": "/usr/bin/g++",
       "cStandard": "c17",
       "cppStandard": "c++17",
+      "includePath": [
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/lib/shader-works/lib/include",
+        "${workspaceFolder}/third-party/SDL/include"
+      ],
       "defines": [
         "PLATFORM_DESKTOP=1",
         "PLATFORM_ESP32=0"
