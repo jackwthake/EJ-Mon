@@ -456,11 +456,34 @@ void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
   }
 }
 
+void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, unsigned char symbol, Color color) {
+  if (!pixels) return;
+
+  int symbol_index = -1;
+  if (symbol >= '0' && symbol <= '9') {
+    symbol_index = symbol - '0';
+  } else if (symbol == '-') {
+    symbol_index = 10;  // Minus sign
+  } else if (symbol == '.') {
+    symbol_index = 11;  // Decimal point
+  } else if (symbol == '%') {
+    symbol_index = 12;  // Percentage sign
+  } else if (symbol == 248) {  // ASCII code for degree symbol '°'
+    symbol_index = 13;  // Degree symbol
+  }
+
+  if (symbol_index < 0 || symbol_index >= NUM_DIGITS) return;
+
+  const Sprite& symbol_sprite = digit_sprites[symbol_index];
+
+  // Draw the symbol sprite with color replacement
+  draw_with_color(fb, fb_w, fb_h, symbol_sprite, x, y, color);
+}
 
 void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, int value, int expected_length, Color color) {
   if (!pixels) return;
-
-  const int padding_between_digits = 2;  // Pixels between digits
+  
+  constexpr int padding_between_digits = 2;  // Pixels between digits
 
   // Convert value to string to extract digits
   char buffer[16];
@@ -485,16 +508,9 @@ void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x
   // Draw each digit
   for (int i = 0; i < len && i < NUM_DIGITS; i++) {
     char ch = buffer[i];
-    if ((ch < '0' || ch > '9') && (ch != '-' && ch != '.' && ch != '%')) continue;  // Skip non-digit characters
+    if (ch < '0' || ch > '9') continue;  // Skip non-digit characters
 
     int digit_index = ch - '0';
-    if (ch == '-') {
-      digit_index = 10;  // Minus sign
-    } else if (ch == '.') {
-      digit_index = 11;  // Decimal point
-    } else if (ch == '%') {
-      digit_index = 12;  // Percentage sign
-    }
 
     const Sprite& digit_sprite = digit_sprites[digit_index];
 

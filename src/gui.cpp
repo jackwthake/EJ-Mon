@@ -216,7 +216,7 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   // Scale based on boost with ease-in (quadratic)
   // Scale from 1.0 (no boost) to 1.5 (max boost)
   float scale_t = boost_normalized * boost_normalized;  // Ease-in quadratic
-  float scale = 1.0f + (scale_t * 0.5f);  // 1.0 to 1.5
+  float scale = 1.0f + (scale_t * 0.15f);  // 1.0 to 1.5
 
   // Draw turbo sprite with color replacement and scaling
   uint16_t* fb = gfx->get_framebuffer();
@@ -288,9 +288,10 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
 
 // Draw 4 cam gears rotating around the engine
 void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s) {
-  // Camshafts rotate at half crankshaft speed (2:1 ratio)
+  // Camshafts rotate at half crankshaft speed (2:1 ratio), then scale down for visual effect
   // Calculate rotation angle based on RPM and time
-  float cam_rpm = data.rpm / 2.0f;
+  float scale = 0.15f;
+  float cam_rpm = (data.rpm / 2.0f) * scale;
   float revolutions_per_second = cam_rpm / 60.0f;
   const float TWO_PI = 2.0f * 3.14159f;
   float angle = revolutions_per_second * time_s * TWO_PI;
@@ -409,6 +410,9 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
   int temp_display = (int)(data.coolant_temp * 9.0f / 5.0f + 32.0f);
   atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
                               label_x, cy, temp_display, 3, Theme::CYAN);
+  // draw °
+  atlas.draw_symbol_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x + 144, cy, (unsigned char)248, Theme::CYAN);
 }
 
 //==============================================================================
@@ -443,10 +447,10 @@ void GUI::init(Graphics* gfx) {
   spr_intake_manifold = {0, 96, 248, 73};
 
   // Knock warning: (0, 368) to (179, 428) = 179x60
-  spr_knock_warning = {0, 368, 179, 60};
+  spr_knock_warning = {416, 176, 64, 64};
 
   // Overboost warning: (192, 368) to (477, 428) = 285x60
-  spr_overboost_warning = {192, 368, 285, 60};
+  spr_overboost_warning = {480, 176, 64, 64};
 
   spr_rpm_label = {416, 0, 128, 32};
 
@@ -499,20 +503,24 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Layout centers (for 960x320 screen)
   // Wabi Sabi ui design lol 
-  constexpr int engine_cx = 480;
+  constexpr int engine_cx = 500;
   constexpr int engine_cy = 230;
-  constexpr int turbo_cx = 310;
+  constexpr int turbo_cx = 336;
   constexpr int turbo_cy = 80;
-  constexpr int ic_cx = 480;
+  constexpr int ic_cx = 500;
   constexpr int ic_cy = 70;
-  constexpr int intake_cx = 477;
+  constexpr int intake_cx = 497;
   constexpr int intake_cy = 130;  // Between intercooler and engine
-  constexpr int battery_cx = 810;
-  constexpr int battery_cy = 230;
-  constexpr int cubes_cx = 810;
-  constexpr int cubes_cy = 110;
+
+  constexpr int battery_cx = 820;
+  constexpr int battery_cy = 260;
+  constexpr int cubes_cx = 820;
+  constexpr int cubes_cy = 150;
+
   constexpr int labels_cx = 160;
   constexpr int labels_cy = 180;
+  constexpr int warning_cx = 820;
+  constexpr int warning_cy = 20;
 
   draw_top_rpm_bar(gfx, data);
 
@@ -528,10 +536,10 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Draw warning messages on top of everything
   if (data.knock_detected) {
-    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, 30, 30, true);
+    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, warning_cx - 72, warning_cy, true);
   }
 
   if (data.overboost) {
-    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, 645, 30, true);
+    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, warning_cx + 12, warning_cy, true);
   }
 }
