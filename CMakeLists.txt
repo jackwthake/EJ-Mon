@@ -57,6 +57,18 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
 
   target_include_directories(ej-mon PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    /home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/cores/esp32
+    /home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/variants/esp32s3
+    /home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/libraries/*/src
+    /home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/libraries/*
+    /home/jwt/Arduino/libraries/Adafruit_FT6206_Library
+    /home/jwt/Arduino/libraries/Adafruit_CST8XX_Library
+    /home/jwt/Arduino/libraries/Adafruit_BusIO
+    /home/jwt/Arduino/libraries/Adafruit_BusIO/src
+    /home/jwt/Arduino/libraries/Adafruit_GFX_Library
+    /home/jwt/Arduino/libraries/Adafruit_GFX_Library/src
+    /home/jwt/Arduino/libraries/GFX_Library_for_Arduino/src
+    /home/jwt/Arduino/libraries/GFX_Library_for_Arduino/src/databus
   )
 
   # Compiler flags for desktop
@@ -68,28 +80,25 @@ if(TARGET_PLATFORM_UPPER STREQUAL "DESKTOP")
 
   # Define platform macros
   target_compile_definitions(ej-mon PRIVATE
+    ARDUINO=10819
+    ARDUINO_ESP32S3_DEV
+    ARDUINO_ARCH_ESP32
     PLATFORM_DESKTOP=1
     PLATFORM_ESP32=0
   )
 
 elseif(TARGET_PLATFORM_UPPER STREQUAL "ESP32")
-  message(STATUS "Building for ESP32")
-  # ESP32-IDF integration will go here
-  # This will be added when you have the toolchain set up
-
-  # Main executable - uses main.cpp for ESP32
-  # add_executable(ej-mon
-  #   src/main.cpp
-  #   src/can/can_parser.cpp
-  # )
-
-  # Define platform macros for ESP32
-  # target_compile_definitions(ej-mon PRIVATE
-  #   PLATFORM_DESKTOP=0
-  #   PLATFORM_ESP32=1
-  # )
-
-  message(FATAL_ERROR "ESP32 build not yet implemented")
+  message(STATUS "Building for ESP32-S3 (Adafruit Qualia RGB666)")
+  message(STATUS "")
+  message(STATUS "ESP32 build requires Arduino-ESP32 toolchain.")
+  message(STATUS "Use the provided build-esp32.sh script instead:")
+  message(STATUS "  ./build-esp32.sh")
+  message(STATUS "")
+  message(STATUS "To flash via TinyUF2 bootloader:")
+  message(STATUS "  1. Double-tap reset to enter bootloader (drive appears as QUALIAS3BOOT)")
+  message(STATUS "  2. Copy build-esp32/ej-mon.uf2 to the drive")
+  message(STATUS "")
+  message(FATAL_ERROR "Use ./build-esp32.sh for ESP32 builds")
 
 else()
   message(FATAL_ERROR "Unknown TARGET_PLATFORM: ${TARGET_PLATFORM}")

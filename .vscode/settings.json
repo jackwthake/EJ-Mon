@@ -4,5 +4,34 @@
   "files.associations": {
     "*.h": "c",
     "*.cpp": "cpp"
-  }
+  },
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/src",
+    "${workspaceFolder}/third-party/SDL/include",
+    "${workspaceFolder}/lib/shader-works/lib/include",
+    "/home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/cores/esp32",
+    "/home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/variants/esp32s3",
+    "/home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/libraries/*/src",
+    "/home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/libraries/*",
+    "/home/jwt/.arduino15/packages/esp32/hardware/esp32/3.3.3/tools/sdk/esp32/include/**",
+    "/home/jwt/Arduino/libraries/Adafruit_FT6206_Library",
+    "/home/jwt/Arduino/libraries/Adafruit_CST8XX_Library",
+    "/home/jwt/Arduino/libraries/Adafruit_BusIO",
+    "/home/jwt/Arduino/libraries/Adafruit_BusIO/src",
+    "/home/jwt/Arduino/libraries/Adafruit_GFX_Library",
+    "/home/jwt/Arduino/libraries/Adafruit_GFX_Library/src",
+    "/home/jwt/Arduino/libraries/GFX_Library_for_Arduino/src",
+    "/home/jwt/Arduino/libraries/GFX_Library_for_Arduino/src/databus",
+    "/home/jwt/Arduino/libraries/*/src",
+    "/home/jwt/Arduino/libraries/*"
+  ],
+  "C_Cpp.default.defines": [
+    "ARDUINO=10819",
+    "ARDUINO_ESP32S3_DEV",
+    "ARDUINO_ARCH_ESP32",
+    "ARDUINO_BOARD=\"ARDUINO_ESP32S3_DEV\"",
+    "PLATFORM_DESKTOP=1",
+    "PLATFORM_ESP32=0"
+  ],
+  "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }
