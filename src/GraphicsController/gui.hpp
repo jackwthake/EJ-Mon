@@ -1,12 +1,8 @@
 #pragma once
 
-#include "graphics/gfx.hpp"
-#include "graphics/sprite.hpp"
-#include "can/can_parser.h"
-
-extern "C" {
-#include <shader-works/renderer.h>
-}
+#include "gfx.hpp"
+#include "sprite.hpp"
+#include "../can/can_parser.h"
 
 constexpr uint16_t SHIFT_LIGHT_RPM = 5500;  // RPM to start shift light
 
@@ -20,11 +16,6 @@ public:
   void render(Graphics* gfx, const EngineData& data, float time_s);
 
 private:
-  constexpr static int CUBES_DISPLAY_WIDTH = 256;
-  constexpr static int CUBES_DISPLAY_HEIGHT = 256;
-  float depth_buffer[CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT];
-  uint32_t color_buffer[CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT];
-
   // Sprite atlas
   SpriteAtlas atlas;
 
@@ -44,8 +35,6 @@ private:
   Sprite spr_temp_label;
   Sprite spr_battery_label;
 
-  renderer_t renderer_state;
-
   bool last_frame_above_shift_rpm = false;
 
   // Timing mark animation state
@@ -64,7 +53,6 @@ private:
 
   // Helper functions for drawing individual components
   void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
-  void draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
   void draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& data);

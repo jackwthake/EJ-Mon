@@ -1,32 +1,26 @@
 #include "gfx.hpp"
-#include "gfx_backend.hpp"
-#include "bitmap_font.hpp"
-
-#include "../platform.hpp"
 #include <cstring>
-
-Graphics* create_graphics() {
-#if PLATFORM_DESKTOP
-  return new GraphicsSDL(DISPLAY_WIDTH, DISPLAY_HEIGHT);
-#elif PLATFORM_ESP32
-  return new GraphicsESP32(DISPLAY_WIDTH, DISPLAY_HEIGHT);
-#else
-  #error "No graphics backend for this platform"
-#endif
-}
 
 // Clear the framebuffer
 void Graphics::clear(Color color) {
   uint16_t* fb = get_framebuffer();
-  int size = get_width() * get_height();
-  for (int i = 0; i < size; i++) {
-    fb[i] = color.value;
+  int stride = get_stride();
+  int x_off = get_x_offset();
+  int screen_w = get_width();
+  int screen_h = get_height();
+
+  for (int y = 0; y < screen_h; y++) {
+    for (int x = 0; x < screen_w; x++) {
+      fb[y * stride + x_off + x] = color.value;
+    }
   }
 }
 
 // Fill a rectangle
 void Graphics::fill_rect(int x, int y, int w, int h, Color color) {
   uint16_t* fb = get_framebuffer();
+  int stride = get_stride();
+  int x_off = get_x_offset();
   int screen_w = get_width();
   int screen_h = get_height();
 
@@ -38,7 +32,7 @@ void Graphics::fill_rect(int x, int y, int w, int h, Color color) {
       int px = x + i;
       if (px < 0 || px >= screen_w) continue;
 
-      fb[py * screen_w + px] = color.value;
+      fb[py * stride + x_off + px] = color.value;
     }
   }
 }
@@ -48,7 +42,7 @@ void Graphics::draw_pixel(int x, int y, Color color) {
   if (x < 0 || x >= get_width() || y < 0 || y >= get_height()) return;
 
   uint16_t* fb = get_framebuffer();
-  fb[y * get_width() + x] = color.value;
+  fb[y * get_stride() + get_x_offset() + x] = color.value;
 }
 
 // Draw a line (Bresenham's algorithm)
@@ -88,34 +82,6 @@ void Graphics::draw_rect(int x, int y, int w, int h, Color color) {
   draw_line(x + w - 1, y, x + w - 1, y + h - 1, color); // Right
 }
 
-// Draw a circle (Midpoint circle algorithm)
-void Graphics::draw_circle(int cx, int cy, int r, Color color) {
-  int x = r;
-  int y = 0;
-  int err = 0;
-
-  while (x >= y) {
-    draw_pixel(cx + x, cy + y, color);
-    draw_pixel(cx + y, cy + x, color);
-    draw_pixel(cx - y, cy + x, color);
-    draw_pixel(cx - x, cy + y, color);
-    draw_pixel(cx - x, cy - y, color);
-    draw_pixel(cx - y, cy - x, color);
-    draw_pixel(cx + y, cy - x, color);
-    draw_pixel(cx + x, cy - y, color);
-
-    if (err <= 0) {
-      y += 1;
-      err += 2 * y + 1;
-    }
-
-    if (err > 0) {
-      x -= 1;
-      err -= 2 * x + 1;
-    }
-  }
-}
-
 // Helper function to get character index in font
 static int get_char_index(char c) {
   if (c >= '0' && c <= '9') return c - '0';
@@ -136,37 +102,4 @@ static int get_char_index(char c) {
     case '%': return 45;
     default: return 36; // Default to space for unknown chars
   }
-}
-
-// Draw a single character
-void Graphics::draw_char(char c, int x, int y, int scale, Color color) {
-  int idx = get_char_index(c);
-
-  for (int row = 0; row < 5; row++) {
-    uint8_t bits = font_3x5[idx][row];
-    for (int col = 0; col < 3; col++) {
-      if (bits & (1 << (2 - col))) {
-        // Draw scaled pixel
-        fill_rect(x + col * scale, y + row * scale, scale, scale, color);
-      }
-    }
-  }
-}
-
-// Draw text string
-void Graphics::draw_text(const char* text, int x, int y, int scale, Color color) {
-  int cursor_x = x;
-
-  while (*text) {
-    draw_char(*text, cursor_x, y, scale, color);
-    cursor_x += 4 * scale; // 3 pixels + 1 spacing
-    text++;
-  }
-}
-
-// Measure text width
-int Graphics::measure_text(const char* text, int scale) {
-  int len = 0;
-  while (text[len]) len++;
-  return len * 4 * scale; // 3 pixels + 1 spacing per char
 }

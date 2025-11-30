@@ -13,6 +13,11 @@ public:
   virtual uint16_t* get_framebuffer() = 0;
   virtual int get_width() const = 0;
   virtual int get_height() const = 0;
+
+  // Framebuffer stride (may differ from width due to hardware offsets)
+  virtual int get_stride() const { return get_width(); }
+  // X offset into framebuffer (for displays with column offsets)
+  virtual int get_x_offset() const { return 0; }
   
   // Clear & fill
   void clear(Color color);
@@ -22,13 +27,7 @@ public:
   void draw_pixel(int x, int y, Color color);
   void draw_line(int x0, int y0, int x1, int y1, Color color);
   void draw_rect(int x, int y, int w, int h, Color color);
-  void draw_circle(int cx, int cy, int r, Color color);
   
-  // Text rendering
-  void draw_char(char c, int x, int y, int scale, Color color);
-  void draw_text(const char* text, int x, int y, int scale, Color color);
-  int measure_text(const char* text, int scale);  // Returns width
-
   // Virtual destructor
   virtual ~Graphics() = default;
 };

@@ -1,18 +1,22 @@
 #include "sprite.hpp"
+#include "atlas_data.h"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
 
-#ifdef PLATFORM_DESKTOP
-#include <cstdlib>
-#endif
+#include <pgmspace.h>
+#include <esp_heap_caps.h>
 
 SpriteAtlas::SpriteAtlas() : pixels(nullptr), width(0), height(0) {
 }
 
 SpriteAtlas::~SpriteAtlas() {
   if (pixels) {
+#if defined(ESP32)
+    heap_caps_free(pixels);
+#else
     delete[] pixels;
+#endif
     pixels = nullptr;
   }
 }
@@ -99,18 +103,56 @@ bool SpriteAtlas::load_from_file(const char* filename) {
 #endif
 }
 
-bool SpriteAtlas::load_from_memory(const uint8_t* data, size_t size) {
-  // TODO: Implement for ESP32 embedded sprites
-  (void)data;
-  (void)size;
-  return false;
+bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
+  if (!data || w <= 0 || h <= 0) return false;
+
+  // Clean up existing data
+  if (pixels) {
+#if defined(ESP32)
+    heap_caps_free(pixels);
+#else
+    delete[] pixels;
+#endif
+    pixels = nullptr;
+  }
+
+  width = w;
+  height = h;
+  size_t num_pixels = (size_t)w * h;
+  size_t data_size = num_pixels * sizeof(uint16_t);
+
+#if defined(ESP32)
+  // Allocate in PSRAM on ESP32-S3 (much larger than internal DRAM)
+  pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (!pixels) {
+    // Fall back to internal RAM if PSRAM not available
+    pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_8BIT);
+  }
+  if (!pixels) return false;
+
+  // Copy from PROGMEM
+  memcpy_P(pixels, data, data_size);
+#else
+  // Allocate regular heap on desktop
+  pixels = new uint16_t[num_pixels];
+  if (!pixels) return false;
+  memcpy(pixels, data, data_size);
+#endif
+
+  return true;
+}
+
+bool SpriteAtlas::load_embedded() {
+  return load_from_rgb565(atlas_data, ATLAS_DATA_WIDTH, ATLAS_DATA_HEIGHT);
 }
 
 // Draw sprite from atlas to framebuffer
 void SpriteAtlas::draw(uint16_t* fb, int fb_w, int fb_h,
                        const Sprite& sprite, int x, int y,
-                       bool transparent) {
+                       bool transparent,
+                       int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;  // Default stride = width
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -136,7 +178,7 @@ void SpriteAtlas::draw(uint16_t* fb, int fb_w, int fb_h,
       // Skip transparent pixels if transparent mode
       if (transparent && (color == MAGENTA_RGB565 || color == 0x0000)) continue;
 
-      fb[(y + dy) * fb_w + (x + dx)] = color;
+      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
     }
   }
 }
@@ -144,8 +186,10 @@ void SpriteAtlas::draw(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite with color replacement (magenta -> color)
 void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
                                   const Sprite& sprite, int x, int y,
-                                  Color replace_color) {
+                                  Color replace_color,
+                                  int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -176,7 +220,7 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
         color = replace_color.value;
       }
 
-      fb[(y + dy) * fb_w + (x + dx)] = color;
+      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
     }
   }
 }
@@ -184,9 +228,11 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite with color replacement and scaling (centered at cx, cy)
 void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
                                           const Sprite& sprite, int cx, int cy,
-                                          Color replace_color, float scale) {
+                                          Color replace_color, float scale,
+                                          int fb_stride, int fb_x_offset) {
   if (!pixels) return;
   if (scale <= 0.0f) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   // Calculate scaled dimensions
   int scaled_w = (int)(sprite.w * scale);
@@ -228,7 +274,7 @@ void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
         color = replace_color.value;
       }
 
-      fb[screen_y * fb_w + screen_x] = color;
+      fb[screen_y * fb_stride + fb_x_offset + screen_x] = color;
     }
   }
 }
@@ -236,8 +282,10 @@ void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite rotated around center point
 void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
                                const Sprite& sprite, int cx, int cy,
-                               float angle_rad, bool transparent) {
+                               float angle_rad, bool transparent,
+                               int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   float cos_a = cosf(angle_rad);
   float sin_a = sinf(angle_rad);
@@ -275,7 +323,7 @@ void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
       // Skip transparent pixels
       if (transparent && color == BLACK_RGB565) continue;
 
-      fb[(int)screen_y * fb_w + (int)screen_x] = color;
+      fb[(int)screen_y * fb_stride + fb_x_offset + (int)screen_x] = color;
     }
   }
 }
@@ -283,8 +331,10 @@ void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite with multiple color replacements (magenta + green)
 void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
                                     const Sprite& sprite, int x, int y,
-                                    Color magenta_replacement, Color green_replacement) {
+                                    Color magenta_replacement, Color green_replacement,
+                                    int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -319,7 +369,7 @@ void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
         color = green_replacement.value;
       }
 
-      fb[(y + dy) * fb_w + (x + dx)] = color;
+      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
     }
   }
 }
@@ -328,8 +378,10 @@ void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
 void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
                                             const Sprite& sprite, int x, int y,
                                             Color magenta_replacement, Color active_tick_col,
-                                            int active_index, int num_shades) {
+                                            int active_index, int num_shades,
+                                            int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -394,7 +446,7 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
               color = active_tick_col.value;  // Bright green for active
               is_active_mark = true;
             }
-            
+
             break;  // Found the shade, exit loop
           }
         }
@@ -405,7 +457,7 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
         }
       }
 
-      fb[(y + dy) * fb_w + (x + dx)] = color;
+      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
     }
   }
 }
@@ -413,8 +465,10 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
 // Draw sprite with vertical fill level (fills from bottom to top)
 void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
                                   const Sprite& sprite, int x, int y,
-                                  float fill_level, Color fill_color) {
+                                  float fill_level, Color fill_color,
+                                  int fb_stride, int fb_x_offset) {
   if (!pixels) return;
+  if (fb_stride < 0) fb_stride = fb_w;
 
   // Clamp fill level
   if (fill_level < 0.0f) fill_level = 0.0f;
@@ -451,12 +505,13 @@ void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
         continue;
       }
 
-      fb[screen_y * fb_w + screen_x] = color;
+      fb[screen_y * fb_stride + fb_x_offset + screen_x] = color;
     }
   }
 }
 
-void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, unsigned char symbol, Color color) {
+void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, unsigned char symbol, Color color,
+                                          int fb_stride, int fb_x_offset) {
   if (!pixels) return;
 
   int symbol_index = -1;
@@ -477,12 +532,13 @@ void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x
   const Sprite& symbol_sprite = digit_sprites[symbol_index];
 
   // Draw the symbol sprite with color replacement
-  draw_with_color(fb, fb_w, fb_h, symbol_sprite, x, y, color);
+  draw_with_color(fb, fb_w, fb_h, symbol_sprite, x, y, color, fb_stride, fb_x_offset);
 }
 
-void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, int value, int expected_length, Color color) {
+void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, int value, int expected_length, Color color,
+                                          int fb_stride, int fb_x_offset) {
   if (!pixels) return;
-  
+
   constexpr int padding_between_digits = 2;  // Pixels between digits
 
   // Convert value to string to extract digits
@@ -515,7 +571,7 @@ void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x
     const Sprite& digit_sprite = digit_sprites[digit_index];
 
     // Draw the digit sprite with color replacement
-    draw_with_color(fb, fb_w, fb_h, digit_sprite, x, y, color);
+    draw_with_color(fb, fb_w, fb_h, digit_sprite, x, y, color, fb_stride, fb_x_offset);
 
     // Advance x position for next digit
     x += digit_sprite.w + padding_between_digits;

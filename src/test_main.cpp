@@ -1,10 +1,11 @@
-#if PLATFORM_DESKTOP
 //==============================================================================
 // Desktop Test Build - SDL Simulator
 //==============================================================================
+#include "../platform.hpp"
 
-#include "platform.hpp"
-#include "can/can_parser.h"
+#if PLATFORM_DESKTOP
+
+#include "../can/can_parser.h"
 #include "graphics/gfx.hpp"
 #include "graphics/gfx_backend.hpp"
 #include "gui.hpp"
@@ -222,5 +223,4 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
 int main(int argc, char* argv[]) {
   return test_main(argc, argv);
 }
-
 #endif

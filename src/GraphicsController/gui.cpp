@@ -1,44 +1,12 @@
 #include "gui.hpp"
-#include "graphics/gfx_types.hpp"
-#include "graphics/sprite.hpp"
+#include "gfx_types.hpp"
+#include "sprite.hpp"
 #include <cmath>
 #include <cfloat>
 #include <cstdio>
 #include <iostream>
 
-extern "C" {
-#include <shader-works/renderer.h>
-#include <shader-works/primitives.h>
-#include <shader-works/maths.h>
-}
-
-//==============================================================================
-// shader-works Color Conversion Functions
-//==============================================================================
-// Required by shader-works for pixel format conversion
-// Note: shader-works uses u32 internally, we convert to/from RGB565
-
-// Convert RGB888 to RGB565 (packed as u32)
-u32 rgb_to_u32(u8 r, u8 g, u8 b) {
-  // Convert 8-bit RGB to 5-6-5 format
-  u32 r5 = (r >> 3) & 0x1F;  // 5 bits for red
-  u32 g6 = (g >> 2) & 0x3F;  // 6 bits for green
-  u32 b5 = (b >> 3) & 0x1F;  // 5 bits for blue
-  return (r5 << 11) | (g6 << 5) | b5;
-}
-
-// Convert RGB565 (packed as u32) to RGB888
-void u32_to_rgb(u32 color, u8 *r, u8 *g, u8 *b) {
-  // Extract RGB565 components
-  u32 r5 = (color >> 11) & 0x1F;
-  u32 g6 = (color >> 5) & 0x3F;
-  u32 b5 = color & 0x1F;
-
-  // Convert back to 8-bit (with proper scaling to preserve full range)
-  *r = (r5 << 3) | (r5 >> 2);  // 5-bit to 8-bit
-  *g = (g6 << 2) | (g6 >> 4);  // 6-bit to 8-bit
-  *b = (b5 << 3) | (b5 >> 2);  // 5-bit to 8-bit
-}
+#include <esp_heap_caps.h>
 
 //==============================================================================
 // Helper Functions
@@ -77,13 +45,13 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
   if (temp_normalized < 0.0f) temp_normalized = 0.0f;
   if (temp_normalized > 1.0f) temp_normalized = 1.0f;
 
-  Color coolant_color = Theme::BLUE;
+  Color coolant_color = Theme::C_BLUE;
   if (temp_normalized < 0.33f) {
-    coolant_color = lerp_color(Theme::BLUE, Theme::GREEN, temp_normalized * 3.0f);
+    coolant_color = lerp_color(Theme::C_BLUE, Theme::C_GREEN, temp_normalized * 3.0f);
   } else if (temp_normalized < 0.66f) {
-    coolant_color = lerp_color(Theme::GREEN, Theme::YELLOW, (temp_normalized - 0.33f) * 3.0f);
+    coolant_color = lerp_color(Theme::C_GREEN, Theme::C_YELLOW, (temp_normalized - 0.33f) * 3.0f);
   } else {
-    coolant_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
+    coolant_color = lerp_color(Theme::C_YELLOW, Theme::C_RED, (temp_normalized - 0.66f) * 3.0f);
   }
 
   // Calculate which timing mark should be active based on RPM
@@ -110,91 +78,16 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_block,
                                   cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
-                                  coolant_color, Theme::GREEN, active_timing_mark, NUM_TIMING_MARKS);
+                                  coolant_color, Theme::C_GREEN, active_timing_mark, NUM_TIMING_MARKS,
+                                  fb_stride, fb_x_off);
 }
 
-void GUI::draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data) {
-  // Clear buffers
-  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
-    color_buffer[i] = 0x000000;  // Black background
-    depth_buffer[i] = FLT_MAX;
-  }
 
-  // Create camera transform
-  transform_t camera = {0};
-  camera.position = make_float3(0.0f, 0.0f, 0.0f);
-  camera.yaw = 0.0f;
-  camera.pitch = 0.0f;
-  update_camera(&renderer_state, &camera);
-
-  // Enable wireframe mode
-  renderer_state.wireframe_mode = true;
-
-  // Base rotation speed (at 60 FPS, this gives nice continuous motion)
-  const float BASE_SPEED = 0.1f;
-  const float BASE_CUBE_SIZE = 4.0f;
-  const float CUBE_DEPTH = -15.0f;  // Further back to prevent clipping
-
-  // Cube 1: Throttle affects rotation speed and size
-  float throttle_normalized = data.throttle / 100.0f;
-  float throttle_speed = throttle_normalized * 2.0f + 0.5f;  // 0.5x to 2.5x speed
-  float cube1_size = BASE_CUBE_SIZE + throttle_normalized * 2.0f;  // 4.0 to 6.0 units
-  cube1_yaw += BASE_SPEED * throttle_speed * 1.3f;
-  cube1_pitch += BASE_SPEED * throttle_speed * 0.7f;
-
-  model_t cube1 = {0};
-  generate_cube(&cube1, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube1_size, cube1_size, cube1_size));
-  cube1.transform.yaw = cube1_yaw;
-  cube1.transform.pitch = cube1_pitch;
-  render_model(&renderer_state, &camera, &cube1, NULL, 0);
-  delete_model(&cube1);
-
-  // Clear only the depth buffer to prevent clipping between cubes
-  // Keep color buffer so wireframes accumulate
-  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
-    depth_buffer[i] = FLT_MAX;
-  }
-
-  // Cube 2: Load affects rotation speed and size - rotates on both axes differently
-  // Engine load in CAN data ranges from ~20% (idle) to ~130% (full throttle)
-  // Map this to 0.0-1.0 for better visual variation
-  float load_normalized = (data.engine_load - 20.0f) / 110.0f;  // 20-130% -> 0.0-1.0
-  if (load_normalized < 0.0f) load_normalized = 0.0f;
-  if (load_normalized > 1.0f) load_normalized = 1.0f;
-  float load_speed = load_normalized * 2.0f + 0.4f;  // 0.4x to 2.4x speed
-  float cube2_size = BASE_CUBE_SIZE + load_normalized * 2.2f;  // 4.0 to 6.2 units
-  cube2_yaw += BASE_SPEED * load_speed * 0.8f;
-  cube2_pitch += BASE_SPEED * load_speed * 1.5f;
-
-  model_t cube2 = {0};
-  generate_cube(&cube2, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube2_size * 0.75f, cube2_size * 0.75f, cube2_size * 0.75f));
-  cube2.transform.yaw = cube2_yaw;
-  cube2.transform.pitch = cube2_pitch;
-  render_model(&renderer_state, &camera, &cube2, NULL, 0);
-  delete_model(&cube2);
-
-  // Blit the color buffer to the framebuffer at (cx, cy)
-  uint16_t* fb = gfx->get_framebuffer();
-  int fb_w = gfx->get_width();
-  int fb_h = gfx->get_height();
-
-  for (int y = 0; y < CUBES_DISPLAY_HEIGHT; ++y) {
-    for (int x = 0; x < CUBES_DISPLAY_WIDTH; ++x) {
-      int screen_x = cx + x - CUBES_DISPLAY_WIDTH / 2;
-      int screen_y = cy + y - CUBES_DISPLAY_HEIGHT / 2;
-
-      if (screen_x >= 0 && screen_x < fb_w && screen_y >= 0 && screen_y < fb_h) {
-        u32 pixel = color_buffer[y * CUBES_DISPLAY_WIDTH + x];
-        // Convert from u32 to RGB565 (already handled by our conversion functions)
-        if (pixel == 0x000000) continue;  // Skip black pixels (background)
-        fb[screen_y * fb_w + screen_x] = (uint16_t)pixel;
-      }
-    }
-  }
-}
 
 // Draw turbo sprite with boost-based color and scaling
 void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
@@ -204,13 +97,13 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   if (boost_normalized < 0.0f) boost_normalized = 0.0f;
   if (boost_normalized > 1.0f) boost_normalized = 1.0f;
 
-  Color turbo_color = Theme::GREEN;
+  Color turbo_color = Theme::C_GREEN;
   if (boost_normalized < 0.5f) {
     // Green -> Yellow (0% to 50%)
-    turbo_color = lerp_color(Theme::BLUE, Theme::WHITE, boost_normalized * 2.0f);
+    turbo_color = lerp_color(Theme::C_BLUE, Theme::C_WHITE, boost_normalized * 2.0f);
   } else {
     // Yellow -> Red (50% to 100%)
-    turbo_color = lerp_color(Theme::WHITE, Theme::RED, (boost_normalized - 0.5f) * 2.0f);
+    turbo_color = lerp_color(Theme::C_WHITE, Theme::C_RED, (boost_normalized - 0.5f) * 2.0f);
   }
 
   // Scale based on boost with ease-in (quadratic)
@@ -222,9 +115,12 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   atlas.draw_with_color_scaled(fb, fb_w, fb_h, spr_turbo_housing,
-                                cx, cy, turbo_color, scale);
+                                cx, cy, turbo_color, scale,
+                                fb_stride, fb_x_off);
 }
 
 // Draw intake manifold with throttle-based tick animation
@@ -247,16 +143,19 @@ void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& 
   }
 
   // Use white for the sprite body (replaces magenta)
-  Color tick_color = Theme::CYAN;
+  Color tick_color = Theme::C_CYAN;
 
   // Draw intake manifold sprite with green tick sequence
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_intake_manifold,
                                   cx - spr_intake_manifold.w/2, cy - spr_intake_manifold.h/2,
-                                  Theme::BLACK, tick_color, active_intake_tick, NUM_TICKS);
+                                  Theme::C_BLACK, tick_color, active_intake_tick, NUM_TICKS,
+                                  fb_stride, fb_x_off);
 }
 
 // Draw intercooler with temperature-based color
@@ -267,23 +166,25 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
   if (temp_normalized < 0.0f) temp_normalized = 0.0f;
   if (temp_normalized > 1.0f) temp_normalized = 1.0f;
 
-  Color ic_color = Theme::CYAN;
+  Color ic_color = Theme::C_CYAN;
   if (temp_normalized < 0.33f) {
-    ic_color = lerp_color(Theme::CYAN, Theme::GREEN, temp_normalized * 3.0f);
+    ic_color = lerp_color(Theme::C_CYAN, Theme::C_GREEN, temp_normalized * 3.0f);
   } else if (temp_normalized < 0.66f) {
-    ic_color = lerp_color(Theme::GREEN, Theme::YELLOW, (temp_normalized - 0.33f) * 3.0f);
+    ic_color = lerp_color(Theme::C_GREEN, Theme::C_YELLOW, (temp_normalized - 0.33f) * 3.0f);
   } else {
-    ic_color = lerp_color(Theme::YELLOW, Theme::RED, (temp_normalized - 0.66f) * 3.0f);
+    ic_color = lerp_color(Theme::C_YELLOW, Theme::C_RED, (temp_normalized - 0.66f) * 3.0f);
   }
 
   // Draw intercooler sprite with color replacement for magenta areas
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   atlas.draw_with_color(fb, fb_w, fb_h, spr_intercooler,
                         cx - spr_intercooler.w/2, cy - spr_intercooler.h/2,
-                        ic_color);
+                        ic_color, fb_stride, fb_x_off);
 }
 
 // Draw 4 cam gears rotating around the engine
@@ -293,18 +194,20 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   float scale = 0.15f;
   float cam_rpm = (data.rpm / 2.0f) * scale;
   float revolutions_per_second = cam_rpm / 60.0f;
-  const float TWO_PI = 2.0f * 3.14159f;
-  float angle = revolutions_per_second * time_s * TWO_PI;
+  const float PI_2 = 2.0f * 3.14159f;
+  float angle = revolutions_per_second * time_s * PI_2;
 
   // Normalize angle to prevent floating point precision issues
   // Keep angle within 0 to 2π range
-  angle = fmodf(angle, TWO_PI);
-  if (angle < 0) angle += TWO_PI;
+  angle = fmodf(angle, PI_2);
+  if (angle < 0) angle += PI_2;
 
   // Get framebuffer
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   // Calculate engine sprite's top-left corner
   // engine_cx and engine_cy are the center of the engine (384x192 sprite)
@@ -326,10 +229,10 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   int gear4_y = engine_top + 137;
 
   // Draw all 4 cam gears rotating at the same speed
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear2_x, gear2_y, angle, true);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear3_x, gear3_y, angle, true);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear4_x, gear4_y, angle, true);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true, fb_stride, fb_x_off);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear2_x, gear2_y, angle, true, fb_stride, fb_x_off);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear3_x, gear3_y, angle, true, fb_stride, fb_x_off);
+  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear4_x, gear4_y, angle, true, fb_stride, fb_x_off);
 }
 
 // Draw battery with vertical fill level
@@ -340,23 +243,25 @@ void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
   if (battery_level > 1.0f) battery_level = 1.0f;
 
   // Color based on level: red (low) -> yellow (medium) -> green (full)
-  Color bat_color = Theme::GREEN;
+  Color bat_color = Theme::C_GREEN;
   if (battery_level < 0.33f) {
-    bat_color = lerp_color(Theme::RED, Theme::YELLOW, battery_level * 3.0f);
+    bat_color = lerp_color(Theme::C_RED, Theme::C_YELLOW, battery_level * 3.0f);
   } else if (battery_level < 0.66f) {
-    bat_color = lerp_color(Theme::YELLOW, Theme::GREEN, (battery_level - 0.33f) * 3.0f);
+    bat_color = lerp_color(Theme::C_YELLOW, Theme::C_GREEN, (battery_level - 0.33f) * 3.0f);
   } else {
-    bat_color = Theme::GREEN;
+    bat_color = Theme::C_GREEN;
   }
 
   // Draw battery sprite with vertical fill level
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   atlas.draw_with_fill(fb, fb_w, fb_h, spr_battery,
                        cx - spr_battery.w/2, cy - spr_battery.h/2,
-                       battery_level, bat_color);
+                       battery_level, bat_color, fb_stride, fb_x_off);
 }
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
@@ -375,16 +280,16 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
   int half_fill = (int)(rpm_normalized * center_x);
 
   // Color transitions: green -> yellow -> red as RPM increases
-  Color bar_color = Theme::WHITE;
+  Color bar_color = Theme::C_WHITE;
 
   if (rpm_normalized <= 0.7f) {
     // From 0.0 → 0.7, fade from white → yellow
     float t = rpm_normalized / 0.7f;
-    bar_color = lerp_color(Theme::WHITE, Theme::YELLOW, t);
+    bar_color = lerp_color(Theme::C_WHITE, Theme::C_YELLOW, t);
   } else {
     // From 0.7 → 1.0, fade from yellow → red
     float t = (rpm_normalized - 0.7f) / (1.0f - 0.7f);
-    bar_color = lerp_color(Theme::YELLOW, Theme::RED, t);
+    bar_color = lerp_color(Theme::C_YELLOW, Theme::C_RED, t);
   }
 
   // Draw left side (fills from left edge toward center)
@@ -396,23 +301,25 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
 
 void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data) {
   const int label_x = cx - 140;
+  uint16_t* fb = gfx->get_framebuffer();
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   // Draw RPM label
-  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
-              spr_rpm_label, label_x, cy - 40, true);
-  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
-                              label_x, cy - 128, data.rpm, 2, Theme::WHITE);
+  atlas.draw(fb, fb_w, fb_h, spr_rpm_label, label_x, cy - 40, true, fb_stride, fb_x_off);
+  atlas.draw_number_from_atlas(fb, fb_w, fb_h, label_x, cy - 128, data.rpm, 2, Theme::C_WHITE, fb_stride, fb_x_off);
+
   // Draw Temp label
-  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
-              spr_temp_label, label_x, cy + 86, true);
+  atlas.draw(fb, fb_w, fb_h, spr_temp_label, label_x, cy + 86, true, fb_stride, fb_x_off);
 
   // convert to fahrenheit for display
   int temp_display = (int)(data.coolant_temp * 9.0f / 5.0f + 32.0f);
-  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
-                              label_x, cy, temp_display, 3, Theme::CYAN);
+  atlas.draw_number_from_atlas(fb, fb_w, fb_h, label_x, cy, temp_display, 3, Theme::C_CYAN, fb_stride, fb_x_off);
+
   // draw °
-  atlas.draw_symbol_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
-                              label_x + 144, cy, (unsigned char)248, Theme::CYAN);
+  atlas.draw_symbol_from_atlas(fb, fb_w, fb_h, label_x + 144, cy, (unsigned char)248, Theme::C_CYAN, fb_stride, fb_x_off);
 }
 
 //==============================================================================
@@ -420,8 +327,8 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
 //==============================================================================
 
 void GUI::init(Graphics* gfx) {
-  // Load sprite atlas
-  if (!atlas.load_from_file("res/atlas.bmp")) {
+  // Load sprite atlas from embedded data
+  if (!atlas.load_embedded()) {
     fprintf(stderr, "Failed to load sprite atlas!\n");
   }
 
@@ -461,14 +368,10 @@ void GUI::init(Graphics* gfx) {
   spr_battery_label = {416, 192, 248, 32};
 
   printf("GUI sprites initialized\n");
-
-  // Initialize shader-works
-  init_renderer(&renderer_state, CUBES_DISPLAY_WIDTH, CUBES_DISPLAY_HEIGHT, 0, 0, 
-                color_buffer, depth_buffer, 15.f);
 }
 
-static constexpr Color SHIFT_LIGHT_COLORS[] = { 
-  Theme::YELLOW, Theme::WHITE, Theme::RED, Theme::WHITE
+static constexpr Color SHIFT_LIGHT_COLORS[] = {
+  Theme::C_YELLOW, Theme::C_WHITE, Theme::C_RED, Theme::C_WHITE
 };
 
 void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
@@ -476,6 +379,8 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   uint16_t* fb = gfx->get_framebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
+  int fb_stride = gfx->get_stride();
+  int fb_x_off = gfx->get_x_offset();
 
   Color bg_color(0, 0, 20);
 
@@ -528,7 +433,6 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   draw_intake_manifold(gfx, intake_cx, intake_cy, data);
   draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
   draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
-  draw_cubes(gfx, cubes_cx, cubes_cy, data);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
   draw_battery(gfx, battery_cx, battery_cy, data);
@@ -536,10 +440,10 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Draw warning messages on top of everything
   if (data.knock_detected) {
-    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, warning_cx - 72, warning_cy, true);
+    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, warning_cx - 72, warning_cy, true, fb_stride, fb_x_off);
   }
 
   if (data.overboost) {
-    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, warning_cx + 12, warning_cy, true);
+    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, warning_cx + 12, warning_cy, true, fb_stride, fb_x_off);
   }
 }
