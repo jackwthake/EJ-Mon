@@ -7,6 +7,12 @@
 #include <pgmspace.h>
 #include <esp_heap_caps.h>
 
+/**
+ * 
+ * TODO: Ensure every draw function uses the graphics class instead of directly access the framebuffer
+ *       This will ensure the displays rotation is respected, right now it is not.
+ */
+
 SpriteAtlas::SpriteAtlas() : pixels(nullptr), width(0), height(0) {
 }
 

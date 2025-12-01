@@ -17,9 +17,10 @@ public:
   int get_height() const override { return TFT_HEIGHT; };
   
   int get_x_offset() const override { return 0; };
+  int get_stride() const override { return TFT_WIDTH; };
   
-  static constexpr unsigned SCREEN_BUF_WIDTH = 320;
-  static constexpr unsigned SCREEN_BUF_HEIGHT = 960;
+  static constexpr unsigned SCREEN_BUF_WIDTH = 960;
+  static constexpr unsigned SCREEN_BUF_HEIGHT = 320;
 private:
   static constexpr unsigned TFT_WIDTH = 320;
   static constexpr unsigned TFT_HEIGHT = 960;

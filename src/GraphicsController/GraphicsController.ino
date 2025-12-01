@@ -1,7 +1,13 @@
 
 #include "DisplayDriver.hpp"
 
+#include "gfx_types.hpp"
+#include "gfx.hpp"
+#include "gui.hpp"
+
 Display_HDC458002C40 *display = nullptr;
+GUI gui;
+EngineData engine_data = {};
 
 void setup(void) {
   Serial.begin(115200);
@@ -14,21 +20,16 @@ void setup(void) {
   // Init Display
   display = new Display_HDC458002C40();
   display->begin();
+
+  gui.init(display);
   Serial.println("EJ-Mon ESP32 Started");
 }
 
 uint16_t hue = 0;
 
 void loop() {
-  Serial.println("Before clear");
   display->clear(display->color565(hue, 255 - hue, 128));
-  hue += 2;
-
-  Serial.println("Before rect");
-  display->fill_rect(0, 0, 80, 80, Theme::C_RED);
-
-  Serial.println("Before flush");
+  gui.render(display, engine_data, millis() / 1000.0f);
   display->present();
-  delay(16);
 }
 

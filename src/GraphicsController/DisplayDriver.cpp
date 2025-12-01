@@ -30,28 +30,27 @@ Arduino_ESP32RGBPanel *Display_HDC458002C40::rgbpanel = new Arduino_ESP32RGBPane
 );
 
 static void rotate_copy(const uint16_t* src_buffer, uint16_t* dst_buffer) {
-    
-    // Constants (Assuming 960x320 source)
-    const int SRC_W = Display_HDC458002C40::SCREEN_BUF_WIDTH;  // 960
+
+    // Constants 
+    const int SRC_W = Display_HDC458002C40::SCREEN_BUF_WIDTH;  // 960 (Use the correct constant name)
     const int SRC_H = Display_HDC458002C40::SCREEN_BUF_HEIGHT; // 320
-    const int DST_W = SRC_H; // Destination Width (320)
+    const int DST_W = Display_HDC458002C40::SCREEN_BUF_HEIGHT; // 320 (Width and height are swapped for 90-degree rotation)
 
     // Iterate through Source (x_src, y_src)
     for (int y_src = 0; y_src < SRC_H; ++y_src) {
         for (int x_src = 0; x_src < SRC_W; ++x_src) {
-            
+
             // --- 90-Degree Counter-Clockwise (Left) Rotation ---
-            
-            // Destination Coordinates:
-            // x_dst = (SRC_H - 1) - y_src 
-            // y_dst = x_src
+            // x_dst = (SRC_H - 1) - y_src  (0 to 319)
+            // y_dst = x_src                (0 to 959)
 
             // Calculate 1D Indices
             size_t src_index = (size_t)y_src * SRC_W + x_src;
-            
-            // I_dst = y_dst * DST_W + x_dst
+
+            // I_dst = y_dst * DST_STRIDE + x_dst
+            // Replace DST_W with dst_stride
             size_t dst_index = (size_t)x_src * DST_W + ((SRC_H - 1) - y_src); 
-            
+
             dst_buffer[dst_index] = src_buffer[src_index];
         }
     }
@@ -97,5 +96,20 @@ void Display_HDC458002C40::begin(void) {
 }
 
 void Display_HDC458002C40::present(void) {
+  // Iterate through half the height to swap the top line with the bottom line
+  // for (int i = 0; i < SCREEN_BUF_HEIGHT / 2; ++i) {
+  //   uint16_t* top_line_ptr = back_buf + (i * SCREEN_BUF_WIDTH);
+    
+  //   uint16_t* bottom_line_ptr = back_buf + ((SCREEN_BUF_HEIGHT - 1 - i) * SCREEN_BUF_WIDTH);
+    
+  //   // Swap the entire range (line) of 'SCREEN_BUF_WIDTH' elements
+  //   std::swap_ranges(
+  //     top_line_ptr,                       // Start of the top line
+  //     top_line_ptr + SCREEN_BUF_WIDTH,    // End of the top line (exclusive)
+  //     bottom_line_ptr                     // Start of the bottom line
+  //   );
+  // }
+  
   this->draw16bitRGBBitmap(0, 0, this->back_buf, TFT_WIDTH, TFT_HEIGHT);
+  Arduino_RGB_Display::flush();
 }

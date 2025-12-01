@@ -32,7 +32,7 @@ void Graphics::fill_rect(int x, int y, int w, int h, Color color) {
       int px = x + i;
       if (px < 0 || px >= screen_w) continue;
 
-      fb[py * stride + x_off + px] = color.value;
+      this->draw_pixel(px, py, color.value);
     }
   }
 }
@@ -42,7 +42,7 @@ void Graphics::draw_pixel(int x, int y, Color color) {
   if (x < 0 || x >= get_width() || y < 0 || y >= get_height()) return;
 
   uint16_t* fb = get_framebuffer();
-  fb[y * get_stride() + get_x_offset() + x] = color.value;
+  fb[x * get_stride() + get_x_offset() + y] = color.value; // Note: Adjusted for rotated framebuffer
 }
 
 // Draw a line (Bresenham's algorithm)
@@ -80,26 +80,4 @@ void Graphics::draw_rect(int x, int y, int w, int h, Color color) {
   draw_line(x, y + h - 1, x + w - 1, y + h - 1, color); // Bottom
   draw_line(x, y, x, y + h - 1, color);           // Left
   draw_line(x + w - 1, y, x + w - 1, y + h - 1, color); // Right
-}
-
-// Helper function to get character index in font
-static int get_char_index(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'A' && c <= 'Z') return 10 + (c - 'A');
-  if (c >= 'a' && c <= 'z') return 10 + (c - 'a'); // Lowercase maps to uppercase
-
-  // Special characters
-  switch (c) {
-    case ' ': return 36;
-    case '.': return 37;
-    case ':': return 38;
-    case '/': return 39;
-    case '+': return 40;
-    case '-': return 41;
-    case ',': return 42;
-    case '!': return 43;
-    case '?': return 44;
-    case '%': return 45;
-    default: return 36; // Default to space for unknown chars
-  }
 }
