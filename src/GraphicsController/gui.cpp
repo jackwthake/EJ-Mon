@@ -74,17 +74,9 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
     timing_mark_accumulator -= steps;
   }
 
-  // Draw engine sprite with sequential green shades
-  uint16_t* fb = gfx->get_framebuffer();
-  int fb_w = gfx->get_width();
-  int fb_h = gfx->get_height();
-  int fb_stride = gfx->get_stride();
-  int fb_x_off = gfx->get_x_offset();
-
-  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_block,
+  atlas.draw_with_green_sequence(gfx, spr_motor_block,
                                   cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
-                                  coolant_color, Theme::C_GREEN, active_timing_mark, NUM_TIMING_MARKS,
-                                  fb_stride, fb_x_off);
+                                  coolant_color, Theme::C_GREEN, active_timing_mark, NUM_TIMING_MARKS);
 }
 
 
@@ -118,9 +110,7 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   int fb_stride = gfx->get_stride();
   int fb_x_off = gfx->get_x_offset();
 
-  atlas.draw_with_color_scaled(fb, fb_w, fb_h, spr_turbo_housing,
-                                cx, cy, turbo_color, scale,
-                                fb_stride, fb_x_off);
+  atlas.draw_with_color_scaled(gfx, spr_turbo_housing, cx, cy, turbo_color, scale);
 }
 
 // Draw intake manifold with throttle-based tick animation
@@ -145,17 +135,9 @@ void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& 
   // Use white for the sprite body (replaces magenta)
   Color tick_color = Theme::C_CYAN;
 
-  // Draw intake manifold sprite with green tick sequence
-  uint16_t* fb = gfx->get_framebuffer();
-  int fb_w = gfx->get_width();
-  int fb_h = gfx->get_height();
-  int fb_stride = gfx->get_stride();
-  int fb_x_off = gfx->get_x_offset();
-
-  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_intake_manifold,
+  atlas.draw_with_green_sequence(gfx, spr_intake_manifold,
                                   cx - spr_intake_manifold.w/2, cy - spr_intake_manifold.h/2,
-                                  Theme::C_BLACK, tick_color, active_intake_tick, NUM_TICKS,
-                                  fb_stride, fb_x_off);
+                                  Theme::C_BLACK, tick_color, active_intake_tick, NUM_TICKS);
 }
 
 // Draw intercooler with temperature-based color
@@ -182,9 +164,8 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
   int fb_stride = gfx->get_stride();
   int fb_x_off = gfx->get_x_offset();
 
-  atlas.draw_with_color(fb, fb_w, fb_h, spr_intercooler,
-                        cx - spr_intercooler.w/2, cy - spr_intercooler.h/2,
-                        ic_color, fb_stride, fb_x_off);
+  atlas.draw_with_color(gfx, spr_intercooler,
+                        cx - spr_intercooler.w/2, cy - spr_intercooler.h/2, ic_color);
 }
 
 // Draw 4 cam gears rotating around the engine
@@ -229,10 +210,10 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   int gear4_y = engine_top + 137;
 
   // Draw all 4 cam gears rotating at the same speed
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true, fb_stride, fb_x_off);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear2_x, gear2_y, angle, true, fb_stride, fb_x_off);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear3_x, gear3_y, angle, true, fb_stride, fb_x_off);
-  atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear4_x, gear4_y, angle, true, fb_stride, fb_x_off);
+  atlas.draw_rotated(gfx, spr_cam_gear, gear1_x, gear1_y, angle, true);
+  atlas.draw_rotated(gfx, spr_cam_gear, gear2_x, gear2_y, angle, true);
+  atlas.draw_rotated(gfx, spr_cam_gear, gear3_x, gear3_y, angle, true);
+  atlas.draw_rotated(gfx, spr_cam_gear, gear4_x, gear4_y, angle, true);
 }
 
 // Draw battery with vertical fill level
@@ -259,9 +240,7 @@ void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
   int fb_stride = gfx->get_stride();
   int fb_x_off = gfx->get_x_offset();
 
-  atlas.draw_with_fill(fb, fb_w, fb_h, spr_battery,
-                       cx - spr_battery.w/2, cy - spr_battery.h/2,
-                       battery_level, bat_color, fb_stride, fb_x_off);
+  atlas.draw_with_fill(gfx, spr_battery, cx - spr_battery.w/2, cy - spr_battery.h/2, battery_level, bat_color);
 }
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
@@ -308,18 +287,18 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
   int fb_x_off = gfx->get_x_offset();
 
   // Draw RPM label
-  atlas.draw(fb, fb_w, fb_h, spr_rpm_label, label_x, cy - 40, true, fb_stride, fb_x_off);
-  atlas.draw_number_from_atlas(fb, fb_w, fb_h, label_x, cy - 128, data.rpm, 2, Theme::C_WHITE, fb_stride, fb_x_off);
+  atlas.draw(gfx, spr_rpm_label, label_x, cy - 40, true);
+  atlas.draw_number_from_atlas(gfx, label_x, cy - 128, data.rpm, 2, Theme::C_WHITE);
 
   // Draw Temp label
-  atlas.draw(fb, fb_w, fb_h, spr_temp_label, label_x, cy + 86, true, fb_stride, fb_x_off);
+  atlas.draw(gfx, spr_temp_label, label_x, cy + 86, true);
 
   // convert to fahrenheit for display
   int temp_display = (int)(data.coolant_temp * 9.0f / 5.0f + 32.0f);
-  atlas.draw_number_from_atlas(fb, fb_w, fb_h, label_x, cy, temp_display, 3, Theme::C_CYAN, fb_stride, fb_x_off);
+  atlas.draw_number_from_atlas(gfx, label_x, cy, temp_display, 3, Theme::C_CYAN);
 
   // draw °
-  atlas.draw_symbol_from_atlas(fb, fb_w, fb_h, label_x + 144, cy, (unsigned char)248, Theme::C_CYAN, fb_stride, fb_x_off);
+  atlas.draw_symbol_from_atlas(gfx, label_x + 144, cy, (unsigned char)248, Theme::C_CYAN);
 }
 
 //==============================================================================
@@ -440,10 +419,10 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   // Draw warning messages on top of everything
   if (data.knock_detected) {
-    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, warning_cx - 72, warning_cy, true, fb_stride, fb_x_off);
+    atlas.draw(gfx, spr_knock_warning, warning_cx - 72, warning_cy, true);
   }
 
   if (data.overboost) {
-    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, warning_cx + 12, warning_cy, true, fb_stride, fb_x_off);
+    atlas.draw(gfx, spr_overboost_warning, warning_cx + 12, warning_cy, true);
   }
 }

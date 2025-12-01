@@ -27,9 +27,9 @@ SpriteAtlas::~SpriteAtlas() {
   }
 }
 
+#ifndef ESP32
 // Simple BMP loader (supports 24-bit and 32-bit BMPs)
 bool SpriteAtlas::load_from_file(const char* filename) {
-#ifdef PLATFORM_DESKTOP
   FILE* f = fopen(filename, "rb");
   if (!f) {
     fprintf(stderr, "Failed to open sprite atlas: %s\n", filename);
@@ -103,11 +103,9 @@ bool SpriteAtlas::load_from_file(const char* filename) {
   delete[] row_buffer;
   fclose(f);
   return true;
-#else
-  // ESP32: Load from embedded data (implement later)
-  return false;
-#endif
 }
+
+#endif
 
 bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
   if (!data || w <= 0 || h <= 0) return false;
@@ -153,12 +151,11 @@ bool SpriteAtlas::load_embedded() {
 }
 
 // Draw sprite from atlas to framebuffer
-void SpriteAtlas::draw(uint16_t* fb, int fb_w, int fb_h,
-                       const Sprite& sprite, int x, int y,
-                       bool transparent,
-                       int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool transparent) {
   if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;  // Default stride = width
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -184,18 +181,17 @@ void SpriteAtlas::draw(uint16_t* fb, int fb_w, int fb_h,
       // Skip transparent pixels if transparent mode
       if (transparent && (color == MAGENTA_RGB565 || color == 0x0000)) continue;
 
-      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
+      gfx->draw_pixel(x + dx, y + dy, Color(color));
     }
   }
 }
 
 // Draw sprite with color replacement (magenta -> color)
-void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
-                                  const Sprite& sprite, int x, int y,
-                                  Color replace_color,
-                                  int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_with_color(Graphics *gfx, const Sprite& sprite, int x, int y, Color replace_color) {
   if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -216,7 +212,7 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = gfx->get_pixel(x + dx, y + dy);
 
       // Skip black (transparent) pixels
       if (color == 0x0000) continue;
@@ -226,19 +222,18 @@ void SpriteAtlas::draw_with_color(uint16_t* fb, int fb_w, int fb_h,
         color = replace_color.value;
       }
 
-      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
+      gfx->draw_pixel(x + dx, y + dy, Color(color));
     }
   }
 }
 
 // Draw sprite with color replacement and scaling (centered at cx, cy)
-void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
-                                          const Sprite& sprite, int cx, int cy,
-                                          Color replace_color, float scale,
-                                          int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale) {
   if (!pixels) return;
   if (scale <= 0.0f) return;
-  if (fb_stride < 0) fb_stride = fb_w;
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   // Calculate scaled dimensions
   int scaled_w = (int)(sprite.w * scale);
@@ -270,7 +265,7 @@ void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = gfx->get_pixel(screen_x, screen_y);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;
@@ -280,18 +275,17 @@ void SpriteAtlas::draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
         color = replace_color.value;
       }
 
-      fb[screen_y * fb_stride + fb_x_offset + screen_x] = color;
+      gfx->draw_pixel(screen_x, screen_y, Color(color));
     }
   }
 }
 
 // Draw sprite rotated around center point
-void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
-                               const Sprite& sprite, int cx, int cy,
-                               float angle_rad, bool transparent,
-                               int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent) {
   if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   float cos_a = cosf(angle_rad);
   float sin_a = sinf(angle_rad);
@@ -324,70 +318,25 @@ void SpriteAtlas::draw_rotated(uint16_t* fb, int fb_w, int fb_h,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = gfx->get_pixel((int)screen_x, (int)screen_y);
 
       // Skip transparent pixels
       if (transparent && color == BLACK_RGB565) continue;
 
-      fb[(int)screen_y * fb_stride + fb_x_offset + (int)screen_x] = color;
-    }
-  }
-}
-
-// Draw sprite with multiple color replacements (magenta + green)
-void SpriteAtlas::draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
-                                    const Sprite& sprite, int x, int y,
-                                    Color magenta_replacement, Color green_replacement,
-                                    int fb_stride, int fb_x_offset) {
-  if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;
-
-  // Clip to screen bounds
-  int sx = 0, sy = 0;
-  int w = sprite.w, h = sprite.h;
-
-  if (x < 0) { sx = -x; w += x; x = 0; }
-  if (y < 0) { sy = -y; h += y; y = 0; }
-  if (x + w > fb_w) w = fb_w - x;
-  if (y + h > fb_h) h = fb_h - y;
-
-  if (w <= 0 || h <= 0) return;
-
-  // Draw sprite
-  for (int dy = 0; dy < h; dy++) {
-    for (int dx = 0; dx < w; dx++) {
-      int atlas_x = sprite.x + sx + dx;
-      int atlas_y = sprite.y + sy + dy;
-
-      if (atlas_x >= width || atlas_y >= height) continue;
-
-      uint16_t color = pixels[atlas_y * width + atlas_x];
-
-      // Skip black (transparent) pixels
-      if (color == BLACK_RGB565) continue;
-
-      // Replace magenta with the specified color
-      if (color == MAGENTA_RGB565) {
-        color = magenta_replacement.value;
-      }
-      // Replace green with the specified color
-      else if (color == GREEN_RGB565) {
-        color = green_replacement.value;
-      }
-
-      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
+      gfx->draw_pixel((int)screen_x, (int)screen_y, Color(color));
     }
   }
 }
 
 // Draw sprite with sequential green shades for timing marks
-void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
+void SpriteAtlas::draw_with_green_sequence(Graphics *gfx,
                                             const Sprite& sprite, int x, int y,
                                             Color magenta_replacement, Color active_tick_col,
-                                            int active_index, int num_shades,
-                                            int fb_stride, int fb_x_offset) {
+                                            int active_index, int num_shades) {
   if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   // Clip to screen bounds
   int sx = 0, sy = 0;
@@ -431,7 +380,7 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = gfx->get_pixel(x + dx, y + dy);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;
@@ -463,18 +412,17 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
         }
       }
 
-      fb[(y + dy) * fb_stride + fb_x_offset + (x + dx)] = color;
+      gfx->draw_pixel(x + dx, y + dy, Color(color));
     }
   }
 }
 
 // Draw sprite with vertical fill level (fills from bottom to top)
-void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
-                                  const Sprite& sprite, int x, int y,
-                                  float fill_level, Color fill_color,
-                                  int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color) {
   if (!pixels) return;
-  if (fb_stride < 0) fb_stride = fb_w;
+
+  int fb_w = gfx->get_width();
+  int fb_h = gfx->get_height();
 
   // Clamp fill level
   if (fill_level < 0.0f) fill_level = 0.0f;
@@ -497,7 +445,7 @@ void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = gfx->get_pixel(screen_x, screen_y);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;
@@ -511,13 +459,12 @@ void SpriteAtlas::draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
         continue;
       }
 
-      fb[screen_y * fb_stride + fb_x_offset + screen_x] = color;
+      gfx->draw_pixel(screen_x, screen_y, Color(color));
     }
   }
 }
 
-void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, unsigned char symbol, Color color,
-                                          int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_symbol_from_atlas(Graphics *gfx, int x, int y, unsigned char symbol, Color color) {
   if (!pixels) return;
 
   int symbol_index = -1;
@@ -538,11 +485,10 @@ void SpriteAtlas::draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x
   const Sprite& symbol_sprite = digit_sprites[symbol_index];
 
   // Draw the symbol sprite with color replacement
-  draw_with_color(fb, fb_w, fb_h, symbol_sprite, x, y, color, fb_stride, fb_x_offset);
+  draw_with_color(gfx, symbol_sprite, x, y, color);
 }
 
-void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x, int y, int value, int expected_length, Color color,
-                                          int fb_stride, int fb_x_offset) {
+void SpriteAtlas::draw_number_from_atlas(Graphics *gfx, int x, int y, int value, int expected_length, Color color) {
   if (!pixels) return;
 
   constexpr int padding_between_digits = 2;  // Pixels between digits
@@ -577,7 +523,7 @@ void SpriteAtlas::draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h, int x
     const Sprite& digit_sprite = digit_sprites[digit_index];
 
     // Draw the digit sprite with color replacement
-    draw_with_color(fb, fb_w, fb_h, digit_sprite, x, y, color, fb_stride, fb_x_offset);
+    draw_with_color(gfx, digit_sprite, x, y, color);
 
     // Advance x position for next digit
     x += digit_sprite.w + padding_between_digits;

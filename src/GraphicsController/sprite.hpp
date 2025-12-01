@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "gfx.hpp"
+
 // Sprite structure for atlas-based sprites
 struct Sprite {
   int16_t x;        // X position in atlas
@@ -18,8 +20,10 @@ public:
   SpriteAtlas();
   ~SpriteAtlas();
 
+#ifndef ESP32
   // Load atlas from BMP file (legacy, desktop only)
   bool load_from_file(const char* filename);
+#endif
 
   // Load atlas from raw RGB565 data (embedded header)
   bool load_from_rgb565(const uint16_t* data, int w, int h);
@@ -28,61 +32,35 @@ public:
   bool load_embedded();
 
   // Draw sprite from atlas to framebuffer
-  // fb_stride/fb_x_offset: framebuffer stride and x offset (for ESP32 displays with column offsets)
-  void draw(uint16_t* fb, int fb_w, int fb_h,
-            const Sprite& sprite, int x, int y,
-            bool transparent,
-            int fb_stride, int fb_x_offset);
+  void draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool transparent);
 
   // Draw sprite with color replacement (magenta -> color)
-  void draw_with_color(uint16_t* fb, int fb_w, int fb_h,
-                       const Sprite& sprite, int x, int y,
-                       Color replace_color,
-                       int fb_stride, int fb_x_offset);
+  void draw_with_color(Graphics *gfx, const Sprite& sprite, int x, int y, Color replace_color);
 
   // Draw sprite with color replacement and scaling (magenta -> color)
   // scale: 1.0 = normal size, >1.0 = larger, <1.0 = smaller
-  void draw_with_color_scaled(uint16_t* fb, int fb_w, int fb_h,
-                               const Sprite& sprite, int cx, int cy,
-                               Color replace_color, float scale,
-                               int fb_stride, int fb_x_offset);
+  void draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale);
 
   // Draw sprite rotated around center point
-  void draw_rotated(uint16_t* fb, int fb_w, int fb_h,
-                    const Sprite& sprite, int cx, int cy,
-                    float angle_rad, bool transparent,
-                    int fb_stride, int fb_x_offset);
+  void draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent);
 
   // Draw sprite with vertical fill level (0.0 = empty, 1.0 = full)
   // Fills from bottom to top
-  void draw_with_fill(uint16_t* fb, int fb_w, int fb_h,
-                      const Sprite& sprite, int x, int y,
-                      float fill_level, Color fill_color,
-                      int fb_stride, int fb_x_offset);
+  void draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color);
 
-  // Draw sprite with multiple color replacements (magenta + green)
-  void draw_with_colors(uint16_t* fb, int fb_w, int fb_h,
-                        const Sprite& sprite, int x, int y,
-                        Color magenta_replacement, Color green_replacement,
-                        int fb_stride, int fb_x_offset);
-
-  // Draw sprite with sequential green shades (for timing marks)
+  // Draw sprite ` sequential green shades (for timing marks)
   // green_shades[i] = color to use for green shade i (RGB 0, 200+i*step, 0)
   // active_index = which shade should be bright green, others become dark gray
-  void draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
+  void draw_with_green_sequence(Graphics *gfx,
                                  const Sprite& sprite, int x, int y,
                                  Color magenta_replacement, Color active_tick,
-                                 int active_index, int num_shades,
-                                 int fb_stride, int fb_x_offset);
+                                 int active_index, int num_shades);
 
 
-  void draw_symbol_from_atlas(uint16_t* fb, int fb_w, int fb_h,
-                          int x, int y, unsigned char symbol, Color color,
-                          int fb_stride, int fb_x_offset);
+  // Draw a single symbol from the atlas, characters supported: '-', '.', '%', '°'
+  void draw_symbol_from_atlas(Graphics *gfx, int x, int y, unsigned char symbol, Color color);
   // Draw a single digit from the atlas
-  void draw_number_from_atlas(uint16_t* fb, int fb_w, int fb_h,
-                          int x, int y, int value, int expected_length, Color color,
-                          int fb_stride, int fb_x_offset);
+  void draw_number_from_atlas(Graphics *gfx, int x, int y, int value, int expected_length, Color color);
 
   // Get atlas dimensions
   int get_width() const { return width; }

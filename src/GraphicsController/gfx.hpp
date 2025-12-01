@@ -27,6 +27,12 @@ public:
   void draw_pixel(int x, int y, Color color);
   void draw_line(int x0, int y0, int x1, int y1, Color color);
   void draw_rect(int x, int y, int w, int h, Color color);
+
+  uint16_t get_pixel(int x, int y) {
+    if (x < 0 || x >= get_width() || y < 0 || y >= get_height()) return 0;
+    uint16_t* fb = this->get_framebuffer();
+    return fb[y * get_stride() + get_x_offset() + x]; // Note: Adjusted for rotated framebuffer
+  }
   
   // Virtual destructor
   virtual ~Graphics() = default;
