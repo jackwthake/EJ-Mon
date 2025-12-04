@@ -20,11 +20,6 @@ public:
   SpriteAtlas();
   ~SpriteAtlas();
 
-#ifndef ESP32
-  // Load atlas from BMP file (legacy, desktop only)
-  bool load_from_file(const char* filename);
-#endif
-
   // Load atlas from raw RGB565 data (embedded header)
   bool load_from_rgb565(const uint16_t* data, int w, int h);
 
@@ -65,6 +60,10 @@ public:
   // Get atlas dimensions
   int get_width() const { return width; }
   int get_height() const { return height; }
+  inline uint16_t get_pixel(int x, int y) const {
+    if (!pixels || x < 0 || x >= width || y < 0 || y >= height) return 0;
+    return pixels[y * width + x];
+  }
 
 private:
   uint16_t* pixels;  // RGB565 pixel data

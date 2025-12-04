@@ -3,7 +3,7 @@
 
 // Clear the framebuffer
 void Graphics::clear(Color color) {
-  uint16_t* fb = get_framebuffer();
+  uint16_t* fb = getFramebuffer();
   int stride = get_stride();
   int x_off = get_x_offset();
   int screen_w = get_width();
@@ -11,15 +11,14 @@ void Graphics::clear(Color color) {
 
   for (int y = 0; y < screen_h; y++) {
     for (int x = 0; x < screen_w; x++) {
-      fb[y * stride + x_off + x] = color.value;
+      this->draw_pixel(x, y, color);
     }
   }
 }
 
 // Fill a rectangle
 void Graphics::fill_rect(int x, int y, int w, int h, Color color) {
-  uint16_t* fb = get_framebuffer();
-  int stride = get_stride();
+  uint16_t* fb = getFramebuffer();
   int x_off = get_x_offset();
   int screen_w = get_width();
   int screen_h = get_height();
@@ -41,8 +40,8 @@ void Graphics::fill_rect(int x, int y, int w, int h, Color color) {
 void Graphics::draw_pixel(int x, int y, Color color) {
   if (x < 0 || x >= get_width() || y < 0 || y >= get_height()) return;
 
-  uint16_t* fb = get_framebuffer();
-  fb[x * get_stride() + get_x_offset() + y] = color.value; // Note: Adjusted for rotated framebuffer
+  uint16_t* fb = getFramebuffer();
+  fb[y * get_stride() + get_x_offset() + x] = color.value;
 }
 
 // Draw a line (Bresenham's algorithm)

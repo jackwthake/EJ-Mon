@@ -45,12 +45,6 @@ private:
   float intake_tick_accumulator = 0.0f;  // Accumulates fractional increments
   int active_intake_tick = 0;             // Current active tick (0-4)
 
-  // Cube rotation state (constantly spinning)
-  float cube1_yaw = 0.0f;
-  float cube1_pitch = 0.0f;
-  float cube2_yaw = 0.0f;
-  float cube2_pitch = 0.0f;
-
   // Helper functions for drawing individual components
   void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
   void draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);

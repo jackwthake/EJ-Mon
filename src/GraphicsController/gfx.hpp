@@ -10,7 +10,7 @@ public:
   virtual void present() = 0;  // Swap/flush framebuffer to display
   
   // Framebuffer access
-  virtual uint16_t* get_framebuffer() = 0;
+  virtual uint16_t* getFramebuffer() = 0;
   virtual int get_width() const = 0;
   virtual int get_height() const = 0;
 
@@ -28,9 +28,9 @@ public:
   void draw_line(int x0, int y0, int x1, int y1, Color color);
   void draw_rect(int x, int y, int w, int h, Color color);
 
-  uint16_t get_pixel(int x, int y) {
+  inline uint16_t get_pixel(int x, int y) {
     if (x < 0 || x >= get_width() || y < 0 || y >= get_height()) return 0;
-    uint16_t* fb = this->get_framebuffer();
+    uint16_t* fb = this->getFramebuffer();
     return fb[y * get_stride() + get_x_offset() + x]; // Note: Adjusted for rotated framebuffer
   }
   

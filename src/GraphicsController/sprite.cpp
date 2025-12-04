@@ -7,22 +7,12 @@
 #include <pgmspace.h>
 #include <esp_heap_caps.h>
 
-/**
- * 
- * TODO: Ensure every draw function uses the graphics class instead of directly access the framebuffer
- *       This will ensure the displays rotation is respected, right now it is not.
- */
-
 SpriteAtlas::SpriteAtlas() : pixels(nullptr), width(0), height(0) {
 }
 
 SpriteAtlas::~SpriteAtlas() {
   if (pixels) {
-#if defined(ESP32)
     heap_caps_free(pixels);
-#else
-    delete[] pixels;
-#endif
     pixels = nullptr;
   }
 }
@@ -112,11 +102,7 @@ bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
 
   // Clean up existing data
   if (pixels) {
-#if defined(ESP32)
     heap_caps_free(pixels);
-#else
-    delete[] pixels;
-#endif
     pixels = nullptr;
   }
 
@@ -125,7 +111,6 @@ bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
   size_t num_pixels = (size_t)w * h;
   size_t data_size = num_pixels * sizeof(uint16_t);
 
-#if defined(ESP32)
   // Allocate in PSRAM on ESP32-S3 (much larger than internal DRAM)
   pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (!pixels) {
@@ -136,12 +121,6 @@ bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
 
   // Copy from PROGMEM
   memcpy_P(pixels, data, data_size);
-#else
-  // Allocate regular heap on desktop
-  pixels = new uint16_t[num_pixels];
-  if (!pixels) return false;
-  memcpy(pixels, data, data_size);
-#endif
 
   return true;
 }
@@ -176,7 +155,7 @@ void SpriteAtlas::draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool t
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = pixels[atlas_y * width + atlas_x];
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip transparent pixels if transparent mode
       if (transparent && (color == MAGENTA_RGB565 || color == 0x0000)) continue;
@@ -212,7 +191,7 @@ void SpriteAtlas::draw_with_color(Graphics *gfx, const Sprite& sprite, int x, in
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = gfx->get_pixel(x + dx, y + dy);
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip black (transparent) pixels
       if (color == 0x0000) continue;
@@ -265,7 +244,7 @@ void SpriteAtlas::draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, in
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = gfx->get_pixel(screen_x, screen_y);
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;
@@ -318,7 +297,7 @@ void SpriteAtlas::draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int 
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = gfx->get_pixel((int)screen_x, (int)screen_y);
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip transparent pixels
       if (transparent && color == BLACK_RGB565) continue;
@@ -380,7 +359,7 @@ void SpriteAtlas::draw_with_green_sequence(Graphics *gfx,
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = gfx->get_pixel(x + dx, y + dy);
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;
@@ -445,7 +424,7 @@ void SpriteAtlas::draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
-      uint16_t color = gfx->get_pixel(screen_x, screen_y);
+      uint16_t color = this->get_pixel(atlas_x, atlas_y);
 
       // Skip black (transparent) pixels
       if (color == BLACK_RGB565) continue;

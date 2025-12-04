@@ -104,7 +104,7 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
   float scale = 1.0f + (scale_t * 0.15f);  // 1.0 to 1.5
 
   // Draw turbo sprite with color replacement and scaling
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -158,7 +158,7 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
   }
 
   // Draw intercooler sprite with color replacement for magenta areas
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -184,7 +184,7 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   if (angle < 0) angle += PI_2;
 
   // Get framebuffer
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -234,7 +234,7 @@ void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
   }
 
   // Draw battery sprite with vertical fill level
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -280,7 +280,7 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
 
 void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data) {
   const int label_x = cx - 140;
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -355,7 +355,7 @@ static constexpr Color SHIFT_LIGHT_COLORS[] = {
 
 void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   // Get framebuffer for sprite drawing
-  uint16_t* fb = gfx->get_framebuffer();
+  uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
   int fb_stride = gfx->get_stride();
@@ -398,8 +398,6 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
 
   constexpr int battery_cx = 820;
   constexpr int battery_cy = 260;
-  constexpr int cubes_cx = 820;
-  constexpr int cubes_cy = 150;
 
   constexpr int labels_cx = 160;
   constexpr int labels_cy = 180;

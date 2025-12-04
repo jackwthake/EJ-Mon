@@ -12,21 +12,22 @@ public:
   void begin(void);
   void present(void);
   
-  uint16_t *get_framebuffer() override { return back_buf; };
-  int get_width() const override { return TFT_WIDTH; };
-  int get_height() const override { return TFT_HEIGHT; };
+  // Override of Arduino_RGB_Display functions for Graphics interface
+  inline uint16_t *getFramebuffer() override { return back_buf; };
+  inline int get_width() const override { return SCREEN_BUF_WIDTH; };
+  inline int get_height() const override { return SCREEN_BUF_HEIGHT; };
   
-  int get_x_offset() const override { return 0; };
-  int get_stride() const override { return TFT_WIDTH; };
+  inline int get_x_offset() const override { return 0; };
+  inline int get_stride() const override { return SCREEN_BUF_WIDTH; };
   
   static constexpr unsigned SCREEN_BUF_WIDTH = 960;
   static constexpr unsigned SCREEN_BUF_HEIGHT = 320;
 private:
-  static constexpr unsigned TFT_WIDTH = 320;
+  static constexpr unsigned TFT_WIDTH = 400;
   static constexpr unsigned TFT_HEIGHT = 960;
 
-  static constexpr unsigned TFT_PIXEL_CLOCK = 24800000; // 24.8 mhz
-  static constexpr unsigned BOUNCE_BUF_SIZE = (TFT_WIDTH + 80) * 2 * 16; // 48 scanline buffer, 80 collumn blanking
+  static constexpr unsigned TFT_PIXEL_CLOCK = 24000000; // 24 mhz
+  static constexpr unsigned BOUNCE_BUF_SIZE = (TFT_WIDTH) * 2 * 16; // 48 scanline buffer, 80 collumn blanking
 
   uint16_t *back_buf;
 
