@@ -47,7 +47,7 @@ void Display_HDC458002C40::begin(void) {
     Serial.println("Display: Initialization failed!");
   }
 
-  Serial.printf("Display: initialized: %dx%d\n", this->width(), this->height());
+  Serial.printf("Display: initialized: %dx%d\n\r", this->width(), this->height());
 
   this->fillScreen(RGB565_BLACK);
   expander->pinMode(PCA_TFT_BACKLIGHT, OUTPUT);
@@ -55,7 +55,8 @@ void Display_HDC458002C40::begin(void) {
   Serial.println("Display: Backlight on");
 
   Serial.printf("Allocating back buffer......  ");
-  this->back_buf = (uint16_t*)heap_caps_malloc(SCREEN_BUF_WIDTH * SCREEN_BUF_HEIGHT * sizeof(uint16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  this->back_buf = (uint16_t*)heap_caps_malloc(SCREEN_BUF_WIDTH * SCREEN_BUF_HEIGHT * sizeof(uint16_t), 
+                                               MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
   if (this->back_buf == nullptr) {
     Serial.println("FAILED!");
     while (1);
@@ -63,12 +64,13 @@ void Display_HDC458002C40::begin(void) {
     Serial.println("OK");
   }
 
-  Serial.printf("=============- Post Display Init Memory Diag -=============\n");
-  Serial.printf("Free heap: %u\n", heap_caps_get_free_size(MALLOC_CAP_DEFAULT));
-  Serial.printf("Free PSRAM: %u\n", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-  Serial.printf("PSRAM size reported: %u\n", ESP.getPsramSize());
-  Serial.printf("Framebuffer ptr: %p\n", (void*)this->getFramebuffer());
-  Serial.printf("Bounce buffer bytes: %u\n", (unsigned)BOUNCE_BUF_SIZE);
+  Serial.printf("=============- Post Display Init Memory Diag -=============\n\r");
+  Serial.printf("\tFree heap: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_DEFAULT));
+  Serial.printf("\tFree PSRAM: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  Serial.printf("\tPSRAM size reported: %u\n\r", ESP.getPsramSize());
+  Serial.printf("\tFramebuffer ptr: %p\n\r", (void*)this->getFramebuffer());
+  Serial.printf("\tBounce buffer bytes: %u\n\r", (unsigned)BOUNCE_BUF_SIZE);
+  Serial.printf("===========================================================\n\r\n\r");
 }
 
 void Display_HDC458002C40::present(void) {

@@ -26,8 +26,8 @@ private:
   static constexpr unsigned TFT_WIDTH = 400;
   static constexpr unsigned TFT_HEIGHT = 960;
 
-  static constexpr unsigned TFT_PIXEL_CLOCK = 24000000; // 24 mhz
-  static constexpr unsigned BOUNCE_BUF_SIZE = (TFT_WIDTH) * 2 * 16; // 48 scanline buffer, 80 collumn blanking
+  static constexpr unsigned TFT_PIXEL_CLOCK = 30000000; // 30 mhz
+  static constexpr unsigned BOUNCE_BUF_SIZE = (TFT_WIDTH) * 32; // 32 scanline buffer
 
   uint16_t *back_buf;
 

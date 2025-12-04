@@ -23,26 +23,80 @@ EngineData engine_data = {
   .overboost = false
 };
 
+void gui_task(void *param) {
+  Serial.println("Success!");
+  
+  for (;;) {
+    gui.render(display, engine_data, millis() / 1000.0f);
+    display->present();
+
+    static float t = 0.0f;
+    t += 0.02f;
+    engine_data.rpm = 3000 + (int)(1500 * (sinf(t) + 1.0f) / 2.0f);
+    engine_data.boost_psi = 10.0f + 10.0f * (cosf(t * 1.5f) + 1.0f) / 2.0f;
+    engine_data.intake_temp = 30 + (int)(40 * (sinf(t * 0.8f) + 1.0f) / 2.0f);
+    engine_data.coolant_temp = 70 + (int)(30 * (sinf(t * 0.5f + 1.0f) / 2.0f));
+    engine_data.battery_voltage = 13.5f + 0.5f * (sinf(t * 0.3f) + 1.0f) / 2.0f;
+  }
+}
+
+void can_ingest_task(void *param) {
+  Serial.println("Success!");
+
+  for (;;) {
+    // unimplemented
+    delay(500);
+    Serial.println("CAN Ingest Task Heartbeat"); 
+  }
+}
+
 void setup(void) {
   Serial.begin(115200);
-
   while(!Serial);
 
   delay(250);
   Serial.println("Beginning");
-  
+
   // Init Display
   display = new Display_HDC458002C40();
   display->begin();
 
   gui.init(display);
   Serial.println("EJ-Mon ESP32 Started");
+
+  Serial.printf("Starting CAN Ingest Task on APP CPU...\t");
+  BaseType_t res = xTaskCreatePinnedToCore(
+    can_ingest_task,
+    "can_ingest_task", 
+    8192,         // stack size
+    nullptr,      // parameter
+    1,            // normal priority
+    nullptr,      // handle
+    0             // APP_CPU
+  );
+
+  if (res != pdPASS) {
+    Serial.println("Failed to create CAN Ingest Task!");
+    while (1);
+  }
+
+  Serial.printf("Starting GUI Task on PRO CPU...\t");
+  res = xTaskCreatePinnedToCore(
+    gui_task,
+    "gui_task", 
+    8192,         // stack size
+    nullptr,      // parameter
+    2,            // high priority
+    nullptr,      // handle
+    1             // PRO_CPU
+  );
+
+  if (res != pdPASS) {
+    Serial.println("Failed to create GUI Task!");
+    while (1);
+  }
 }
 
 
-void loop() {
-  display->clear(display->color565(20, 0, 90));
-  gui.render(display, engine_data, millis());
-  display->present();
-}
+void loop() { }
 
