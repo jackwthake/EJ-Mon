@@ -6,7 +6,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build-esp32"
-ARDUINO_DIR="$SCRIPT_DIR/third-party/arduino"
 BOARD_FQBN="esp32:esp32:adafruit_qualia_s3_rgb666"
 SKETCH_DIR="$SCRIPT_DIR/src/GraphicsController"
 
@@ -25,14 +24,15 @@ echo "Building for Adafruit Qualia ESP32-S3 RGB666..."
 # Build with arduino-cli using local core
 # Speed optimizations: QIO 120MHz flash, 240MHz CPU, OPI PSRAM
 arduino-cli compile \
-    --fqbn "$BOARD_FQBN:FlashMode=qio120,CPUFreq=240,PSRAM=opi" \
-    --build-path "$BUILD_DIR/output" \
-    --libraries "$ARDUINO_DIR/libraries" \
-    --build-property "build.partitions=tinyuf2-partitions-16MB" \
-    --build-property "upload.maximum_size=2097152" \
-    --build-property "compiler.cpp.extra_flags=-DPLATFORM_ESP32=1 -DPLATFORM_DESKTOP=0 -I$SCRIPT_DIR/src/GraphicsController" \
-    --build-property "compiler.c.extra_flags=-DPLATFORM_ESP32=1 -DPLATFORM_DESKTOP=0 -I$SCRIPT_DIR/src/GraphicsController" \
-    "$SKETCH_DIR"
+  --fqbn "$BOARD_FQBN:FlashMode=qio120,CPUFreq=240,PSRAM=opi" \
+  --build-path "$BUILD_DIR/output" \
+  --build-property "build.partitions=tinyuf2-partitions-16MB" \
+  --build-property "upload.maximum_size=2097152" \
+  --build-property "compiler.cpp.extra_flags=-O3 -ffast-math -fno-rtti -fno-exceptions" \
+  --build-property "compiler.c.extra_flags=-O3" \
+  --build-property "compiler.ldflags=-O3"\
+  "$SKETCH_DIR"
+
 
 # Convert to UF2 format for TinyUF2 bootloader
 # The UF2 family ID for ESP32-S3 is 0xc47e5767

@@ -2,7 +2,6 @@
 #include <cstring>
 #include <cstdio>
 
-#if PLATFORM_ESP32
 CANFrame from_mcp2515_frame(uint32_t can_id, uint8_t can_dlc, const uint8_t* can_data) {
   CANFrame frame;
   frame.timestamp_ms = 0;  // ESP32 can use millis() or FreeRTOS tick
@@ -11,7 +10,6 @@ CANFrame from_mcp2515_frame(uint32_t can_id, uint8_t can_dlc, const uint8_t* can
   memcpy(frame.data, can_data, 8);
   return frame;
 }
-#endif
 
 void CANParser::decode_frame(const CANFrame& frame, EngineData& data) {
   switch (frame.id) {
@@ -47,31 +45,3 @@ void CANParser::decode_frame(const CANFrame& frame, EngineData& data) {
       break;
   }
 }
-
-#if PLATFORM_DESKTOP
-bool CANParser::parse_line(const char* line, CANFrame& frame) {
-  if (line[0] == '#' || line[0] == '\0' || line[0] == '\n') {
-    return false;  // Skip comments and empty lines
-  }
-
-  unsigned int ts, id, dlc;
-  unsigned int d[8];
-
-  int parsed = sscanf(line, "%u,%x,%u,%x,%x,%x,%x,%x,%x,%x,%x",
-                     &ts, &id, &dlc,
-                     &d[0], &d[1], &d[2], &d[3],
-                     &d[4], &d[5], &d[6], &d[7]);
-
-  if (parsed < 3) return false;
-
-  frame.timestamp_ms = ts;
-  frame.id = id;
-  frame.dlc = dlc;
-
-  for (int i = 0; i < 8; i++) {
-    frame.data[i] = (i < dlc && i < parsed - 3) ? d[i] : 0;
-  }
-
-  return true;
-}
-#endif

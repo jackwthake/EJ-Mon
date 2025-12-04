@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "../platform.hpp"
 
 // CAN frame structure (generic format for both platforms)
 struct CANFrame {
@@ -11,11 +10,9 @@ struct CANFrame {
   uint8_t data[8];        // Payload data
 };
 
-#if PLATFORM_ESP32
 // MCP2515 library compatibility
 // Conversion helper for ESP32 MCP2515 frames
 CANFrame from_mcp2515_frame(uint32_t can_id, uint8_t can_dlc, const uint8_t* can_data);
-#endif
 
 // Decoded engine parameters
 struct EngineData {
@@ -40,9 +37,4 @@ class CANParser {
 public:
   // Main decode function - works on both ESP32 and Desktop
   static void decode_frame(const CANFrame& frame, EngineData& data);
-
-#if PLATFORM_DESKTOP
-  // Desktop-only: Parse a line from the test data file
-  static bool parse_line(const char* line, CANFrame& frame);
-#endif
 };
