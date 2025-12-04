@@ -7,6 +7,8 @@
 #include <pgmspace.h>
 #include <esp_heap_caps.h>
 
+#include "../log/log.hpp"
+
 SpriteAtlas::SpriteAtlas() : pixels(nullptr), width(0), height(0) {
 }
 
@@ -130,7 +132,7 @@ bool SpriteAtlas::load_embedded() {
 }
 
 // Draw sprite from atlas to framebuffer
-void SpriteAtlas::draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool transparent) {
+void SpriteAtlas::draw(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, bool transparent) {
   if (!pixels) return;
 
   int fb_w = gfx->get_width();
@@ -146,6 +148,27 @@ void SpriteAtlas::draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool t
   if (y + h > fb_h) h = fb_h - y;
 
   if (w <= 0 || h <= 0) return;
+
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(sprite.w * sprite.h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", sprite.w, sprite.h);
+    return;
+  };
+  
+  // memset(spr_buf, RGB565_BLACK, sprite.w * sprite.h * sizeof(uint16_t));
+  //memcpy old region from framebuffer to sprite buffer to preserve transparent areas
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = x + dx;
+      int fb_y = y + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
+
 
   // Draw sprite
   for (int dy = 0; dy < h; dy++) {
@@ -160,13 +183,17 @@ void SpriteAtlas::draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool t
       // Skip transparent pixels if transparent mode
       if (transparent && (color == MAGENTA_RGB565 || color == 0x0000)) continue;
 
-      gfx->draw_pixel(x + dx, y + dy, Color(color));
+      // gfx->draw_pixel(x + dx, y + dy, Color(color));
+      spr_buf[dy * sprite.w + dx] = color;
     }
   }
+
+  gfx->draw16bitRGBBitmap(x, y, spr_buf, sprite.w, sprite.h);
+  heap_caps_free(spr_buf);
 }
 
 // Draw sprite with color replacement (magenta -> color)
-void SpriteAtlas::draw_with_color(Graphics *gfx, const Sprite& sprite, int x, int y, Color replace_color) {
+void SpriteAtlas::draw_with_color(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, Color replace_color) {
   if (!pixels) return;
 
   int fb_w = gfx->get_width();
@@ -182,6 +209,24 @@ void SpriteAtlas::draw_with_color(Graphics *gfx, const Sprite& sprite, int x, in
   if (y + h > fb_h) h = fb_h - y;
 
   if (w <= 0 || h <= 0) return;
+
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(w * h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", w, h);
+    return;
+  };
+
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = x + dx;
+      int fb_y = y + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
 
   // Draw sprite
   for (int dy = 0; dy < h; dy++) {
@@ -201,13 +246,18 @@ void SpriteAtlas::draw_with_color(Graphics *gfx, const Sprite& sprite, int x, in
         color = replace_color.value;
       }
 
-      gfx->draw_pixel(x + dx, y + dy, Color(color));
+      // gfx->draw_pixel(x + dx, y + dy, Color(color));
+      spr_buf[dy * w + dx] = color;
     }
   }
+
+  // uint16_t *dirty_rect = gfx->getFramebuffer() + y * gfx->get_stride() + x;
+  gfx->draw16bitRGBBitmap(x, y, spr_buf, sprite.w, sprite.h);
+  heap_caps_free(spr_buf);
 }
 
 // Draw sprite with color replacement and scaling (centered at cx, cy)
-void SpriteAtlas::draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale) {
+void SpriteAtlas::draw_with_color_scaled(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale) {
   if (!pixels) return;
   if (scale <= 0.0f) return;
 
@@ -221,6 +271,24 @@ void SpriteAtlas::draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, in
   // Calculate top-left position (centered on cx, cy)
   int x = cx - scaled_w / 2;
   int y = cy - scaled_h / 2;
+
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(scaled_w * scaled_h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", scaled_w, scaled_h);
+    return;
+  };
+  
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = x + dx;
+      int fb_y = y + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
 
   // Draw scaled sprite using nearest-neighbor sampling
   for (int dy = 0; dy < scaled_h; dy++) {
@@ -254,13 +322,17 @@ void SpriteAtlas::draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, in
         color = replace_color.value;
       }
 
-      gfx->draw_pixel(screen_x, screen_y, Color(color));
+      // gfx->draw_pixel(screen_x, screen_y, Color(color));
+      spr_buf[dy * scaled_w + dx] = color;
     }
   }
+
+  gfx->draw16bitRGBBitmap(x, y, spr_buf, scaled_w, scaled_h);
+  heap_caps_free(spr_buf);
 }
 
 // Draw sprite rotated around center point
-void SpriteAtlas::draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent) {
+void SpriteAtlas::draw_rotated(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent) {
   if (!pixels) return;
 
   int fb_w = gfx->get_width();
@@ -274,6 +346,24 @@ void SpriteAtlas::draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int 
 
   // Bounding box for rotated sprite
   float max_dim = sqrtf(sprite.w * sprite.w + sprite.h * sprite.h) / 2.0f + 1;
+
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(sprite.w * sprite.h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", sprite.w, sprite.h);
+    return;
+  };
+  
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = (cx - half_w) + dx;
+      int fb_y = (cy - half_h) + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
 
   for (float dy = -max_dim; dy <= max_dim; dy++) {
     for (float dx = -max_dim; dx <= max_dim; dx++) {
@@ -302,13 +392,17 @@ void SpriteAtlas::draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int 
       // Skip transparent pixels
       if (transparent && color == BLACK_RGB565) continue;
 
-      gfx->draw_pixel((int)screen_x, (int)screen_y, Color(color));
+      // gfx->draw_pixel((int)screen_x, (int)screen_y, Color(color));
+      spr_buf[((int)screen_y - (cy - (int)half_h)) * sprite.w + ((int)screen_x - (cx - (int)half_w))] = color;
     }
   }
+
+  gfx->draw16bitRGBBitmap(cx - half_w, cy - half_h, spr_buf, sprite.w, sprite.h);
+  heap_caps_free(spr_buf);
 }
 
 // Draw sprite with sequential green shades for timing marks
-void SpriteAtlas::draw_with_green_sequence(Graphics *gfx,
+void SpriteAtlas::draw_with_green_sequence(Display_HDC458002C40 *gfx,
                                             const Sprite& sprite, int x, int y,
                                             Color magenta_replacement, Color active_tick_col,
                                             int active_index, int num_shades) {
@@ -351,6 +445,24 @@ void SpriteAtlas::draw_with_green_sequence(Graphics *gfx,
   // Calculate previous index (the one behind the active mark)
   int prev_index = (active_index - 1 + num_shades) % num_shades;
 
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(sprite.w * sprite.h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", sprite.w, sprite.h);
+    return;
+  };
+  
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = x + dx;
+      int fb_y = y + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
+
   // Draw sprite
   for (int dy = 0; dy < h; dy++) {
     for (int dx = 0; dx < w; dx++) {
@@ -391,13 +503,17 @@ void SpriteAtlas::draw_with_green_sequence(Graphics *gfx,
         }
       }
 
-      gfx->draw_pixel(x + dx, y + dy, Color(color));
+      // gfx->draw_pixel(x + dx, y + dy, Color(color));
+      spr_buf[dy * w + dx] = color;
     }
   }
+
+  gfx->draw16bitRGBBitmap(x, y, spr_buf, sprite.w, sprite.h);
+  heap_caps_free(spr_buf);
 }
 
 // Draw sprite with vertical fill level (fills from bottom to top)
-void SpriteAtlas::draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color) {
+void SpriteAtlas::draw_with_fill(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color) {
   if (!pixels) return;
 
   int fb_w = gfx->get_width();
@@ -410,6 +526,24 @@ void SpriteAtlas::draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int
   // Calculate fill height (from bottom)
   int fill_height = (int)(sprite.h * fill_level);
   int fill_start_y = sprite.h - fill_height;  // Y offset where fill begins
+
+  uint16_t *spr_buf = (uint16_t*)heap_caps_malloc(sprite.w * sprite.h * sizeof(uint16_t), MALLOC_CAP_8BIT);
+  if (!spr_buf) {
+    LOG_ERROR("Failed to allocate sprite buffer for color replacement of size %dx%d", sprite.w, sprite.h);
+    return;
+  };
+  
+  for (int dy = 0; dy < sprite.h; dy++) {
+    for (int dx = 0; dx < sprite.w; dx++) {
+      int fb_x = x + dx;
+      int fb_y = y + dy;
+      if (fb_x >= 0 && fb_x < fb_w && fb_y >= 0 && fb_y < fb_h) {
+        spr_buf[dy * sprite.w + dx] = gfx->get_pixel(fb_x, fb_y);
+      } else {
+        spr_buf[dy * sprite.w + dx] = RGB565_BLACK;
+      }
+    }
+  }
 
   for (int dy = 0; dy < sprite.h; dy++) {
     int screen_y = y + dy;
@@ -438,12 +572,16 @@ void SpriteAtlas::draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int
         continue;
       }
 
-      gfx->draw_pixel(screen_x, screen_y, Color(color));
+      // gfx->draw_pixel(screen_x, screen_y, Color(color));
+      spr_buf[dy * sprite.w + dx] = color;
     }
   }
+
+  gfx->draw16bitRGBBitmap(x, y, spr_buf, sprite.w, sprite.h);
+  heap_caps_free(spr_buf);
 }
 
-void SpriteAtlas::draw_symbol_from_atlas(Graphics *gfx, int x, int y, unsigned char symbol, Color color) {
+void SpriteAtlas::draw_symbol_from_atlas(Display_HDC458002C40 *gfx, int x, int y, unsigned char symbol, Color color) {
   if (!pixels) return;
 
   int symbol_index = -1;
@@ -467,7 +605,7 @@ void SpriteAtlas::draw_symbol_from_atlas(Graphics *gfx, int x, int y, unsigned c
   draw_with_color(gfx, symbol_sprite, x, y, color);
 }
 
-void SpriteAtlas::draw_number_from_atlas(Graphics *gfx, int x, int y, int value, int expected_length, Color color) {
+void SpriteAtlas::draw_number_from_atlas(Display_HDC458002C40 *gfx, int x, int y, int value, int expected_length, Color color) {
   if (!pixels) return;
 
   constexpr int padding_between_digits = 2;  // Pixels between digits

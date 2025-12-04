@@ -4,6 +4,7 @@
 
 #include "gfx.hpp"
 
+
 // Wrapper class for HDC458002C40 display with RGB interface and I2C expander
 class Display_HDC458002C40 : public Arduino_RGB_Display, public Graphics {
 public:
@@ -13,6 +14,10 @@ public:
   void present(void);
   
   // Override of Arduino_RGB_Display functions for Graphics interface
+  inline void draw16bitRGBBitmap(int16_t x, int16_t y, uint16_t *bitmap, int16_t w, int16_t h) override {
+    Arduino_RGB_Display::draw16bitRGBBitmap(-TFT_COL_OFFSET + x, TFT_COL_OFFSET + y, bitmap, w, h);
+  }
+
   inline uint16_t *getFramebuffer() override { return back_buf; };
   inline int get_width() const override { return SCREEN_BUF_WIDTH; };
   inline int get_height() const override { return SCREEN_BUF_HEIGHT; };
@@ -22,11 +27,12 @@ public:
   
   static constexpr unsigned SCREEN_BUF_WIDTH = 960;
   static constexpr unsigned SCREEN_BUF_HEIGHT = 320;
+  static constexpr unsigned TFT_COL_OFFSET = 80;
 private:
   static constexpr unsigned TFT_WIDTH = 400;
   static constexpr unsigned TFT_HEIGHT = 960;
 
-  static constexpr unsigned TFT_PIXEL_CLOCK = 30000000; // 30 mhz
+  static constexpr unsigned TFT_PIXEL_CLOCK = 28000000; // 30 mhz
   static constexpr unsigned BOUNCE_BUF_SIZE = (TFT_WIDTH) * 32; // 32 scanline buffer
 
   uint16_t *back_buf;

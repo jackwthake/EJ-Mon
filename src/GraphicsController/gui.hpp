@@ -10,10 +10,10 @@ constexpr uint16_t SHIFT_LIGHT_RPM = 5500;  // RPM to start shift light
 class GUI {
 public:
   // Initialize GUI (can be called once at startup)
-  void init(Graphics* gfx);
+  void init(Display_HDC458002C40 *gfx);
 
   // Render the complete UI given engine data and animation time
-  void render(Graphics* gfx, const EngineData& data, float time_s);
+  void render(Display_HDC458002C40 *gfx, const EngineData& data, float time_s);
 
 private:
   // Sprite atlas
@@ -46,12 +46,12 @@ private:
   int active_intake_tick = 0;             // Current active tick (0-4)
 
   // Helper functions for drawing individual components
-  void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
-  void draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
-  void draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data);
-  void draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& data);
-  void draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data);
-  void draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s);
-  void draw_top_rpm_bar(Graphics* gfx, const EngineData& data);
-  void draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data);
+  void draw_ej_engine(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data, float time_s);
+  void draw_turbo(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data, float time_s);
+  void draw_intercooler(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data);
+  void draw_intake_manifold(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data);
+  void draw_battery(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data);
+  void draw_cam_gears(Display_HDC458002C40 *gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s);
+  void draw_top_rpm_bar(Display_HDC458002C40 *gfx, const EngineData& data);
+  void draw_engine_param_labels(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data);
 };

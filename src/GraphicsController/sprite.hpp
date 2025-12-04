@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 
-#include "gfx.hpp"
+#include "DisplayDriver.hpp"
 
 // Sprite structure for atlas-based sprites
 struct Sprite {
@@ -27,35 +27,34 @@ public:
   bool load_embedded();
 
   // Draw sprite from atlas to framebuffer
-  void draw(Graphics *gfx, const Sprite& sprite, int x, int y, bool transparent);
+  void draw(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, bool transparent);
 
   // Draw sprite with color replacement (magenta -> color)
-  void draw_with_color(Graphics *gfx, const Sprite& sprite, int x, int y, Color replace_color);
+  void draw_with_color(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, Color replace_color);
 
   // Draw sprite with color replacement and scaling (magenta -> color)
   // scale: 1.0 = normal size, >1.0 = larger, <1.0 = smaller
-  void draw_with_color_scaled(Graphics *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale);
+  void draw_with_color_scaled(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale);
 
   // Draw sprite rotated around center point
-  void draw_rotated(Graphics *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent);
+  void draw_rotated(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent);
 
   // Draw sprite with vertical fill level (0.0 = empty, 1.0 = full)
   // Fills from bottom to top
-  void draw_with_fill(Graphics *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color);
+  void draw_with_fill(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color);
 
   // Draw sprite ` sequential green shades (for timing marks)
   // green_shades[i] = color to use for green shade i (RGB 0, 200+i*step, 0)
   // active_index = which shade should be bright green, others become dark gray
-  void draw_with_green_sequence(Graphics *gfx,
+  void draw_with_green_sequence(Display_HDC458002C40 *gfx,
                                  const Sprite& sprite, int x, int y,
                                  Color magenta_replacement, Color active_tick,
                                  int active_index, int num_shades);
 
-
   // Draw a single symbol from the atlas, characters supported: '-', '.', '%', '°'
-  void draw_symbol_from_atlas(Graphics *gfx, int x, int y, unsigned char symbol, Color color);
+  void draw_symbol_from_atlas(Display_HDC458002C40 *gfx, int x, int y, unsigned char symbol, Color color);
   // Draw a single digit from the atlas
-  void draw_number_from_atlas(Graphics *gfx, int x, int y, int value, int expected_length, Color color);
+  void draw_number_from_atlas(Display_HDC458002C40 *gfx, int x, int y, int value, int expected_length, Color color);
 
   // Get atlas dimensions
   int get_width() const { return width; }

@@ -38,7 +38,7 @@ static Color lerp_color(Color c1, Color c2, float t) {
 //==============================================================================
 
 // Draw EJ engine sprite with coolant temperature color and firing order animation
-void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
+void GUI::draw_ej_engine(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data, float time_s) {
   // Color based on coolant temp: blue (cold) -> green -> yellow -> red (hot)
   // Typical range: 0°C to 120°C
   float temp_normalized = data.coolant_temp / 120.0f;
@@ -82,7 +82,7 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
 
 
 // Draw turbo sprite with boost-based color and scaling
-void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
+void GUI::draw_turbo(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data, float /*time_s*/) {
   // Color interpolation: green (low boost) -> yellow (moderate boost) -> red (high boost)
   // Boost range: -15 to +20 PSI
   float boost_normalized = (data.boost_psi + 15.0f) / 35.0f;
@@ -114,7 +114,7 @@ void GUI::draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, floa
 }
 
 // Draw intake manifold with throttle-based tick animation
-void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& data) {
+void GUI::draw_intake_manifold(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data) {
   // 5 ticks that continuously cycle through, speed controlled by throttle
   const int NUM_TICKS = 5;
 
@@ -141,7 +141,7 @@ void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& 
 }
 
 // Draw intercooler with temperature-based color
-void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data) {
+void GUI::draw_intercooler(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data) {
   // Color based on intake temp: blue (cold) -> green -> yellow -> red (hot)
   // Typical range: -10°C to 80°C
   float temp_normalized = (data.intake_temp + 10.0f) / 90.0f;
@@ -169,7 +169,7 @@ void GUI::draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data
 }
 
 // Draw 4 cam gears rotating around the engine
-void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s) {
+void GUI::draw_cam_gears(Display_HDC458002C40 *gfx, int engine_cx, int engine_cy, const EngineData& data, float time_s) {
   // Camshafts rotate at half crankshaft speed (2:1 ratio), then scale down for visual effect
   // Calculate rotation angle based on RPM and time
   float scale = 0.15f;
@@ -217,7 +217,7 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
 }
 
 // Draw battery with vertical fill level
-void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
+void GUI::draw_battery(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data) {
   // Map battery voltage (10V-15V) to fill level (0.0-1.0)
   float battery_level = (data.battery_voltage - 10.0f) / 5.0f;  // 10V=0.0, 15V=1.0
   if (battery_level < 0.0f) battery_level = 0.0f;
@@ -244,7 +244,7 @@ void GUI::draw_battery(Graphics* gfx, int cx, int cy, const EngineData& data) {
 }
 
 // Draw Assetto Corsa style top RPM bar (fills from both sides)
-void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
+void GUI::draw_top_rpm_bar(Display_HDC458002C40 *gfx, const EngineData& data) {
   constexpr int bar_y = 0;
   constexpr int bar_h = 15;
   constexpr int screen_w = 960;
@@ -272,13 +272,13 @@ void GUI::draw_top_rpm_bar(Graphics* gfx, const EngineData& data) {
   }
 
   // Draw left side (fills from left edge toward center)
-  gfx->fill_rect(0, bar_y, half_fill, bar_h, bar_color);
+  gfx->fillRect(0, Display_HDC458002C40::TFT_COL_OFFSET + bar_y, half_fill, bar_h, bar_color.value);
 
   // Draw right side (fills from right edge toward center)
-  gfx->fill_rect(screen_w - half_fill, bar_y, half_fill, bar_h, bar_color);
+  gfx->fillRect(screen_w - half_fill, Display_HDC458002C40::TFT_COL_OFFSET + bar_y, half_fill, bar_h, bar_color.value);
 }
 
-void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineData& data) {
+void GUI::draw_engine_param_labels(Display_HDC458002C40 *gfx, int cx, int cy, const EngineData& data) {
   const int label_x = cx - 140;
   uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
@@ -305,7 +305,7 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
 // Public GUI Methods
 //==============================================================================
 
-void GUI::init(Graphics* gfx) {
+void GUI::init(Display_HDC458002C40 *gfx) {
   // Load sprite atlas from embedded data
   if (!atlas.load_embedded()) {
     fprintf(stderr, "Failed to load sprite atlas!\n");
@@ -353,7 +353,7 @@ static constexpr Color SHIFT_LIGHT_COLORS[] = {
   Theme::C_YELLOW, Theme::C_WHITE, Theme::C_RED, Theme::C_WHITE
 };
 
-void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
+void GUI::render(Display_HDC458002C40 *gfx, const EngineData& data, float time_s) {
   // Get framebuffer for sprite drawing
   uint16_t* fb = gfx->getFramebuffer();
   int fb_w = gfx->get_width();
@@ -407,20 +407,22 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   draw_top_rpm_bar(gfx, data);
 
   // Draw all components
-  draw_intake_manifold(gfx, intake_cx, intake_cy, data);
-  draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
-  draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
-  draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
-  draw_intercooler(gfx, ic_cx, ic_cy, data);
-  draw_battery(gfx, battery_cx, battery_cy, data);
   draw_engine_param_labels(gfx, labels_cx, labels_cy, data);
+  draw_intake_manifold(gfx, intake_cx, intake_cy, data);
+  draw_intercooler(gfx, ic_cx, ic_cy, data);
+  draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
+  draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
+  draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
+  draw_battery(gfx, battery_cx, battery_cy, data);
 
   // Draw warning messages on top of everything
   if (data.knock_detected) {
     atlas.draw(gfx, spr_knock_warning, warning_cx - 72, warning_cy, true);
+    gfx->draw16bitRGBBitmap(warning_cx + (warning_cx / 2), warning_cy + (warning_cy / 2), gfx->getFramebuffer(), spr_knock_warning.w, spr_knock_warning.h);
   }
 
   if (data.overboost) {
     atlas.draw(gfx, spr_overboost_warning, warning_cx + 12, warning_cy, true);
+    gfx->draw16bitRGBBitmap(warning_cx + (warning_cx / 2), warning_cy + (warning_cy / 2), gfx->getFramebuffer(), spr_overboost_warning.w, spr_overboost_warning.h);
   }
 }

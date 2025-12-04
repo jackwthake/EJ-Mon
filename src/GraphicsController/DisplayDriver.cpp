@@ -1,6 +1,6 @@
 #include "DisplayDriver.hpp"
 
-#define COL_OFFSET 80
+#include "../log/log.hpp"
 
 Arduino_XCA9554SWSPI *Display_HDC458002C40::expander = new Arduino_XCA9554SWSPI(
   PCA_TFT_RESET, PCA_TFT_CS, PCA_TFT_SCK, PCA_TFT_MOSI,
@@ -36,7 +36,7 @@ Display_HDC458002C40::Display_HDC458002C40() : Arduino_RGB_Display(
                                                   TFT_WIDTH, TFT_HEIGHT, rgbpanel, 1 /* rotation */, false /* auto_flush */,
                                                   expander, GFX_NOT_DEFINED /* RST */, 
                                                   HD458002C40_init_operations, sizeof(HD458002C40_init_operations),
-                                                  COL_OFFSET /* col_offset1 */, 0 /* row_offset1 */, 0 /* col_offsetx2 */, 0 /* row_offset2 */ 
+                                                  TFT_COL_OFFSET /* col_offset1 */, 0 /* row_offset1 */, 0 /* col_offsetx2 */, 0 /* row_offset2 */ 
                                                 ) {
   
   }
@@ -44,35 +44,35 @@ Display_HDC458002C40::Display_HDC458002C40() : Arduino_RGB_Display(
 void Display_HDC458002C40::begin(void) {
   Wire.setClock(1000000); // 1MHz - fast mode plus for PCA9554
   if (!Arduino_RGB_Display::begin()) {
-    Serial.println("Display: Initialization failed!");
+    LOG_PRINTLN("Display: Initialization failed!");
   }
 
-  Serial.printf("Display: initialized: %dx%d\n\r", this->width(), this->height());
+  LOG_PRINT("Display: initialized: %dx%d\n\r", this->width(), this->height());
 
   this->fillScreen(RGB565_BLACK);
   expander->pinMode(PCA_TFT_BACKLIGHT, OUTPUT);
   expander->digitalWrite(PCA_TFT_BACKLIGHT, HIGH);
-  Serial.println("Display: Backlight on");
+  LOG_PRINTLN("Display: Backlight on");
 
-  Serial.printf("Allocating back buffer......  ");
+  LOG_PRINT("Allocating back buffer......  ");
   this->back_buf = (uint16_t*)heap_caps_malloc(SCREEN_BUF_WIDTH * SCREEN_BUF_HEIGHT * sizeof(uint16_t), 
                                                MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
   if (this->back_buf == nullptr) {
-    Serial.println("FAILED!");
+    LOG_PRINTLN("FAILED!");
     while (1);
   } else {
-    Serial.println("OK");
+    LOG_PRINTLN("OK");
   }
 
-  Serial.printf("=============- Post Display Init Memory Diag -=============\n\r");
-  Serial.printf("\tFree heap: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_DEFAULT));
-  Serial.printf("\tFree PSRAM: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-  Serial.printf("\tPSRAM size reported: %u\n\r", ESP.getPsramSize());
-  Serial.printf("\tFramebuffer ptr: %p\n\r", (void*)this->getFramebuffer());
-  Serial.printf("\tBounce buffer bytes: %u\n\r", (unsigned)BOUNCE_BUF_SIZE);
-  Serial.printf("===========================================================\n\r\n\r");
+  LOG_PRINT("=============- Post Display Init Memory Diag -=============\n\r");
+  LOG_PRINT("\tFree heap: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_DEFAULT));
+  LOG_PRINT("\tFree PSRAM: %u\n\r", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  LOG_PRINT("\tPSRAM size reported: %u\n\r", ESP.getPsramSize());
+  LOG_PRINT("\tFramebuffer ptr: %p\n\r", (void*)this->getFramebuffer());
+  LOG_PRINT("\tBounce buffer bytes: %u\n\r", (unsigned)BOUNCE_BUF_SIZE);
+  LOG_PRINT("===========================================================\n\r\n\r");
 }
 
 void Display_HDC458002C40::present(void) {
-  this->draw16bitRGBBitmap(-COL_OFFSET - 1, COL_OFFSET - 1, this->back_buf, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT);
+  this->draw16bitRGBBitmap(-TFT_COL_OFFSET - 1, TFT_COL_OFFSET - 1, this->back_buf, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT);
 }

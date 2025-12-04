@@ -5,6 +5,8 @@
 #include "gfx.hpp"
 #include "gui.hpp"
 
+#include "../log/log.hpp"
+
 Display_HDC458002C40 *display = nullptr;
 GUI gui;
 EngineData engine_data = {
@@ -24,11 +26,10 @@ EngineData engine_data = {
 };
 
 void gui_task(void *param) {
-  Serial.println("Success!");
+  LOG_PRINTLN("Success!");
   
   for (;;) {
     gui.render(display, engine_data, millis() / 1000.0f);
-    display->present();
 
     static float t = 0.0f;
     t += 0.02f;
@@ -41,30 +42,27 @@ void gui_task(void *param) {
 }
 
 void can_ingest_task(void *param) {
-  Serial.println("Success!");
+  LOG_PRINTLN("Success!");
 
   for (;;) {
     // unimplemented
     delay(500);
-    Serial.println("CAN Ingest Task Heartbeat"); 
+    // LOG_PRINTLN("CAN Ingest Task Heartbeat"); 
   }
 }
 
 void setup(void) {
-  Serial.begin(115200);
-  while(!Serial);
-
-  delay(250);
-  Serial.println("Beginning");
+  LOG_BEGIN();
+  LOG_PRINTLN("Beginning");
 
   // Init Display
   display = new Display_HDC458002C40();
   display->begin();
 
   gui.init(display);
-  Serial.println("EJ-Mon ESP32 Started");
+  LOG_PRINTLN("EJ-Mon ESP32 Started");
 
-  Serial.printf("Starting CAN Ingest Task on APP CPU...\t");
+  LOG_PRINT("Starting CAN Ingest Task on APP CPU...\t");
   BaseType_t res = xTaskCreatePinnedToCore(
     can_ingest_task,
     "can_ingest_task", 
@@ -76,11 +74,12 @@ void setup(void) {
   );
 
   if (res != pdPASS) {
-    Serial.println("Failed to create CAN Ingest Task!");
-    while (1);
+    LOG_PANIC("Failed to create CAN Ingest Task!");
   }
 
-  Serial.printf("Starting GUI Task on PRO CPU...\t");
+  delay(100);
+
+  LOG_PRINT("Starting GUI Task on PRO CPU...\t");
   res = xTaskCreatePinnedToCore(
     gui_task,
     "gui_task", 
@@ -92,8 +91,7 @@ void setup(void) {
   );
 
   if (res != pdPASS) {
-    Serial.println("Failed to create GUI Task!");
-    while (1);
+    LOG_PANIC("Failed to create GUI Task!");
   }
 }
 
