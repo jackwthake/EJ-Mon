@@ -152,11 +152,14 @@ void SpriteAtlas::draw(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, i
 
   if (w <= 0 || h <= 0) return;
 
-  // Draw sprite directly to framebuffer
+  // Draw sprite directly to framebuffer (cached row offsets for performance)
+  int stride = Display_HDC458002C40::SCREEN_BUF_WIDTH;
   for (int dy = 0; dy < h; dy++) {
+    uint16_t* row = &fb[(y + dy) * stride + x];  // Cache row pointer
+    int atlas_y = sprite.y + sy + dy;
+
     for (int dx = 0; dx < w; dx++) {
       int atlas_x = sprite.x + sx + dx;
-      int atlas_y = sprite.y + sy + dy;
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
@@ -165,7 +168,7 @@ void SpriteAtlas::draw(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, i
       // Skip transparent pixels if transparent mode
       if (transparent && (color == MAGENTA_RGB565 || color == 0x0000)) continue;
 
-      fb[(y + dy) * Display_HDC458002C40::SCREEN_BUF_WIDTH + (x + dx)] = color;
+      row[dx] = color;
     }
   }
 }
@@ -188,10 +191,15 @@ void SpriteAtlas::draw_with_color(Display_HDC458002C40 *gfx, const Sprite& sprit
 
   if (w <= 0 || h <= 0) return;
 
+  uint16_t replace_val = replace_color.value;
+  int stride = Display_HDC458002C40::SCREEN_BUF_WIDTH;
+
   for (int dy = 0; dy < h; dy++) {
+    uint16_t* row = &fb[(y + dy) * stride + x];  // Cache row pointer
+    int atlas_y = sprite.y + sy + dy;
+
     for (int dx = 0; dx < w; dx++) {
       int atlas_x = sprite.x + sx + dx;
-      int atlas_y = sprite.y + sy + dy;
 
       if (atlas_x >= width || atlas_y >= height) continue;
 
@@ -200,9 +208,9 @@ void SpriteAtlas::draw_with_color(Display_HDC458002C40 *gfx, const Sprite& sprit
       if (color == 0x0000) continue; // transparent
 
       if (color == MAGENTA_RGB565)
-        color = replace_color.value;
+        color = replace_val;
 
-      fb[(y + dy) * Display_HDC458002C40::SCREEN_BUF_WIDTH + (x + dx)] = color;
+      row[dx] = color;
     }
   }
 }
@@ -224,21 +232,29 @@ void SpriteAtlas::draw_with_color_scaled(Display_HDC458002C40 *gfx, const Sprite
   int x = cx - scaled_w / 2;
   int y = cy - scaled_h / 2;
 
+  // Use fixed-point arithmetic for scaling: avoid float division per pixel
+  // scale_inv = 65536 / scale (fixed-point Q16.16 reciprocal)
+  uint32_t scale_inv = (uint32_t)(65536.0f / scale);
+  int stride = Display_HDC458002C40::SCREEN_BUF_WIDTH;
+  uint16_t replace_val = replace_color.value;
+
   // Draw scaled sprite using nearest-neighbor sampling directly to framebuffer
   for (int dy = 0; dy < scaled_h; dy++) {
     int screen_y = y + dy;
     if (screen_y < 0 || screen_y >= fb_h) continue;
 
-    // Map screen y to sprite y (inverse scale)
-    int src_y = (int)((float)dy / scale);
+    // Map screen y to sprite y using fixed-point: src_y = (dy * scale_inv) >> 16
+    int src_y = ((dy * scale_inv) >> 16);
     if (src_y >= sprite.h) src_y = sprite.h - 1;
+
+    uint16_t* row = &fb[screen_y * stride];
 
     for (int dx = 0; dx < scaled_w; dx++) {
       int screen_x = x + dx;
       if (screen_x < 0 || screen_x >= fb_w) continue;
 
-      // Map screen x to sprite x (inverse scale)
-      int src_x = (int)((float)dx / scale);
+      // Map screen x to sprite x using fixed-point: src_x = (dx * scale_inv) >> 16
+      int src_x = ((dx * scale_inv) >> 16);
       if (src_x >= sprite.w) src_x = sprite.w - 1;
 
       int atlas_x = sprite.x + src_x;
@@ -253,10 +269,10 @@ void SpriteAtlas::draw_with_color_scaled(Display_HDC458002C40 *gfx, const Sprite
 
       // Replace magenta with the specified color
       if (color == MAGENTA_RGB565) {
-        color = replace_color.value;
+        color = replace_val;
       }
 
-      fb[screen_y * Display_HDC458002C40::SCREEN_BUF_WIDTH + screen_x] = color;
+      row[screen_x] = color;
     }
   }
 }

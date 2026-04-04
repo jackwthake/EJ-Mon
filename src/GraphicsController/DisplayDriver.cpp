@@ -77,16 +77,24 @@ void Display_HDC458002C40::present(void) {
   this->draw16bitRGBBitmap(-TFT_COL_OFFSET - 1, TFT_COL_OFFSET - 1, this->back_buf, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT);
 }
 
-// Clear the framebuffer
+// Clear the framebuffer (optimized with 4-pixel unrolled loop)
 void Display_HDC458002C40::clear(Color color) {
   uint16_t* fb = getFramebuffer();
-  int screen_w = get_width();
-  int screen_h = get_height();
-
-  for (int y = 0; y < screen_h; y++) {
-    for (int x = 0; x < screen_w; x++) {
-      fb[y * SCREEN_BUF_WIDTH + x] = color.value;
-    }
+  int total_pixels = get_width() * get_height();
+  int aligned_count = (total_pixels / 4) * 4;  // Process in 4-pixel chunks
+  
+  // Unrolled loop: write 4 pixels per iteration
+  // This reduces branch checks and improves instruction-level parallelism
+  for (int i = 0; i < aligned_count; i += 4) {
+    fb[i + 0] = color.value;
+    fb[i + 1] = color.value;
+    fb[i + 2] = color.value;
+    fb[i + 3] = color.value;
+  }
+  
+  // Handle remaining pixels (0-3)
+  for (int i = aligned_count; i < total_pixels; i++) {
+    fb[i] = color.value;
   }
 }
 

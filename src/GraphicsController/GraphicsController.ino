@@ -27,8 +27,13 @@ EngineData engine_data = {
 void gui_task(void *param) {
   LOG_PRINTLN("Success!");
   
+  constexpr uint32_t TARGET_FPS = 60;
+  constexpr uint32_t FRAME_TIME_MS = 1000 / TARGET_FPS;  // 16ms per frame
+  
   for (;;) {
-    gui.render(display, engine_data, millis() / 1000.0f);
+    uint32_t frame_start = millis();
+    
+    gui.render(display, engine_data, frame_start / 1000.0f);
 
     static float t = 0.0f;
     t += 0.02f;
@@ -37,6 +42,12 @@ void gui_task(void *param) {
     engine_data.intake_temp = 30 + (int)(40 * (sinf(t * 0.8f) + 1.0f) / 2.0f);
     engine_data.coolant_temp = 70 + (int)(30 * (sinf(t * 0.5f + 1.0f) / 2.0f));
     engine_data.battery_voltage = 13.5f + 0.5f * (sinf(t * 0.3f) + 1.0f) / 2.0f;
+    
+    // Frame rate limiting: cap at TARGET_FPS
+    uint32_t frame_elapsed = millis() - frame_start;
+    if (frame_elapsed < FRAME_TIME_MS) {
+      delay(FRAME_TIME_MS - frame_elapsed);
+    }
   }
 }
 
