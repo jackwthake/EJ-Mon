@@ -2,7 +2,6 @@
 #include "DisplayDriver.hpp"
 
 #include "gfx_types.hpp"
-#include "gfx.hpp"
 #include "gui.hpp"
 
 #include "../log/log.hpp"

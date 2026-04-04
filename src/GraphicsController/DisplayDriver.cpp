@@ -76,3 +76,35 @@ void Display_HDC458002C40::begin(void) {
 void Display_HDC458002C40::present(void) {
   this->draw16bitRGBBitmap(-TFT_COL_OFFSET - 1, TFT_COL_OFFSET - 1, this->back_buf, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT);
 }
+
+// Clear the framebuffer
+void Display_HDC458002C40::clear(Color color) {
+  uint16_t* fb = getFramebuffer();
+  int screen_w = get_width();
+  int screen_h = get_height();
+
+  for (int y = 0; y < screen_h; y++) {
+    for (int x = 0; x < screen_w; x++) {
+      fb[y * SCREEN_BUF_WIDTH + x] = color.value;
+    }
+  }
+}
+
+// Fill a rectangle
+void Display_HDC458002C40::fill_rect(int x, int y, int w, int h, Color color) {
+  uint16_t* fb = getFramebuffer();
+  int screen_w = get_width();
+  int screen_h = get_height();
+
+  for (int j = 0; j < h; j++) {
+    int py = y + j;
+    if (py < 0 || py >= screen_h) continue;
+
+    for (int i = 0; i < w; i++) {
+      int px = x + i;
+      if (px < 0 || px >= screen_w) continue;
+
+      fb[py * SCREEN_BUF_WIDTH + px] = color.value;
+    }
+  }
+}

@@ -36,21 +36,6 @@ public:
   // scale: 1.0 = normal size, >1.0 = larger, <1.0 = smaller
   void draw_with_color_scaled(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, Color replace_color, float scale);
 
-  // Draw sprite rotated around center point
-  void draw_rotated(Display_HDC458002C40 *gfx, const Sprite& sprite, int cx, int cy, float angle_rad, bool transparent);
-
-  // Draw sprite with vertical fill level (0.0 = empty, 1.0 = full)
-  // Fills from bottom to top
-  void draw_with_fill(Display_HDC458002C40 *gfx, const Sprite& sprite, int x, int y, float fill_level, Color fill_color);
-
-  // Draw sprite ` sequential green shades (for timing marks)
-  // green_shades[i] = color to use for green shade i (RGB 0, 200+i*step, 0)
-  // active_index = which shade should be bright green, others become dark gray
-  void draw_with_green_sequence(Display_HDC458002C40 *gfx,
-                                 const Sprite& sprite, int x, int y,
-                                 Color magenta_replacement, Color active_tick,
-                                 int active_index, int num_shades);
-
   // Draw a single symbol from the atlas, characters supported: '-', '.', '%', '°'
   void draw_symbol_from_atlas(Display_HDC458002C40 *gfx, int x, int y, unsigned char symbol, Color color);
   // Draw a single digit from the atlas

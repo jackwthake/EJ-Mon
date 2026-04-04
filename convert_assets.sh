@@ -15,4 +15,9 @@ if [ -f "res/background.png" ]; then
   echo "✓ Converted background.png -> background.bmp (transparency -> black)"
 fi
 
+# Generate atlas_data.h from atlas.bmp
+if [ -f "res/atlas.bmp" ]; then
+  python3 generate_atlas_data.py res/atlas.bmp src/GraphicsController/atlas_data.h
+fi
+
 echo "Done!"
