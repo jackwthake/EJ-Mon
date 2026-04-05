@@ -10,18 +10,12 @@ Display_HDC458002C40 *display = nullptr;
 GUI gui;
 EngineData engine_data = {
   .rpm = 3500,
-  .speed = 65,
   .throttle = 45,
   .coolant_temp = 85,
   .intake_temp = 40,
   .boost_psi = 12.5f,
   .knock_count = 0,
   .timing_adv = 10,
-  .engine_load = 55,
-  .maf_gs = 18,
-  .battery_voltage = 13.8f,
-  .knock_detected = false,
-  .overboost = false
 };
 
 void gui_task(void *param) {
@@ -41,7 +35,6 @@ void gui_task(void *param) {
     engine_data.boost_psi = 10.0f + 10.0f * (cosf(t * 1.5f) + 1.0f) / 2.0f;
     engine_data.intake_temp = 30 + (int)(40 * (sinf(t * 0.8f) + 1.0f) / 2.0f);
     engine_data.coolant_temp = 70 + (int)(30 * (sinf(t * 0.5f + 1.0f) / 2.0f));
-    engine_data.battery_voltage = 13.5f + 0.5f * (sinf(t * 0.3f) + 1.0f) / 2.0f;
     
     // Frame rate limiting: cap at TARGET_FPS
     uint32_t frame_elapsed = millis() - frame_start;

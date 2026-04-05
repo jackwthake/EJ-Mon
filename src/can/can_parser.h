@@ -17,20 +17,12 @@ CANFrame from_mcp2515_frame(uint32_t can_id, uint8_t can_dlc, const uint8_t* can
 // Decoded engine parameters
 struct EngineData {
   uint16_t rpm;          // Engine RPM
-  uint8_t speed;         // Vehicle speed (MPH)
   uint8_t throttle;      // Throttle position (0-100%)
   int8_t coolant_temp;   // Coolant temp (Celsius)
   int8_t intake_temp;    // Intake air temp (Celsius)
   float boost_psi;       // Boost pressure (PSI, negative = vacuum)
   uint8_t knock_count;   // Knock event count
   int8_t timing_adv;     // Timing advance (degrees)
-  uint8_t engine_load;   // Engine load (%)
-  uint8_t maf_gs;        // Mass air flow (g/s)
-  float battery_voltage; // Battery voltage (V)
-
-  // Flags
-  bool knock_detected;
-  bool overboost;
 };
 
 class CANParser {
