@@ -29,5 +29,5 @@ car-mon
 *.out
 *.app
 
-res/atlas.bmp
-res/splash.bmp
+res/*.bmp
+res/*.png
