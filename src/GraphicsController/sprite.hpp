@@ -23,6 +23,11 @@ public:
   // Load atlas from raw RGB565 data (embedded header)
   bool load_from_rgb565(const uint16_t* data, int w, int h);
 
+  // Load atlas from BMP file (Desktop only)
+  #ifndef PLATFORM_ESP32
+  bool load_from_file(const char* filename);
+  #endif
+
   // Load embedded atlas (uses atlas_data.h)
   bool load_embedded();
 

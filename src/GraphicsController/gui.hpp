@@ -31,3 +31,11 @@ private:
 
   // Helper functions for drawing individual components
 };
+
+// Global variables (defined in gui.cpp)
+extern Display_HDC458002C40 *display;
+extern GUI gui;
+extern EngineData engine_data;
+
+// Main rendering task
+void gui_task(void *param);

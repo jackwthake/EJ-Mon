@@ -2,6 +2,12 @@
 
 #include "../log/log.hpp"
 
+#ifdef PLATFORM_ESP32
+
+// ============================================================================
+// ESP32-S3 Platform Implementation
+// ============================================================================
+
 Arduino_XCA9554SWSPI *Display_HDC458002C40::expander = new Arduino_XCA9554SWSPI(
   PCA_TFT_RESET, PCA_TFT_CS, PCA_TFT_SCK, PCA_TFT_MOSI,
   &Wire, 0x3F
@@ -38,8 +44,11 @@ Display_HDC458002C40::Display_HDC458002C40() : Arduino_RGB_Display(
                                                   HD458002C40_init_operations, sizeof(HD458002C40_init_operations),
                                                   TFT_COL_OFFSET /* col_offset1 */, 0 /* row_offset1 */, 0 /* col_offsetx2 */, 0 /* row_offset2 */ 
                                                 ) {
-  
-  }
+}
+
+Display_HDC458002C40::~Display_HDC458002C40() {
+  // No cleanup needed on ESP32 (static objects managed by Arduino framework)
+}
 
 void Display_HDC458002C40::begin(void) {
   Wire.setClock(1000000); // 1MHz - fast mode plus for PCA9554
@@ -76,6 +85,118 @@ void Display_HDC458002C40::begin(void) {
 void Display_HDC458002C40::present(void) {
   this->draw16bitRGBBitmap(-TFT_COL_OFFSET - 1, TFT_COL_OFFSET - 1, this->back_buf, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT);
 }
+
+#else // PLATFORM_DESKTOP
+
+// ============================================================================
+// Desktop (SDL3) Platform Implementation
+// ============================================================================
+
+Display_HDC458002C40::Display_HDC458002C40() 
+  : sdl_window(nullptr), sdl_surface(nullptr), back_buf(nullptr) {
+}
+
+Display_HDC458002C40::~Display_HDC458002C40() {
+  if (sdl_surface) {
+    SDL_DestroySurface(sdl_surface);
+    sdl_surface = nullptr;
+  }
+  if (sdl_window) {
+    SDL_DestroyWindow(sdl_window);
+    sdl_window = nullptr;
+  }
+  SDL_Quit();
+}
+
+void Display_HDC458002C40::begin(void) {
+  LOG_PRINTLN("Display: Initializing SDL3 window...");
+
+  // Initialize SDL with video support
+  if (!SDL_Init(SDL_INIT_VIDEO)) {
+    LOG_PANIC("SDL_Init failed: %s", SDL_GetError());
+  }
+
+  // Create window (960x320)
+  // Note: SDL3 shows windows by default, so no need for SDL_WINDOW_SHOWN
+  sdl_window = SDL_CreateWindow(
+    "EJ-Mon Desktop Display",
+    SCREEN_BUF_WIDTH,
+    SCREEN_BUF_HEIGHT,
+    0  // flags (window is shown by default in SDL3)
+  );
+
+  if (!sdl_window) {
+    LOG_PANIC("SDL_CreateWindow failed: %s", SDL_GetError());
+  }
+
+  LOG_PRINTLN("Display: SDL window created (960x320)");
+
+  // Allocate framebuffer (RGB565 format)
+  LOG_PRINT("Allocating back buffer......  ");
+  back_buf = (uint16_t*)malloc(SCREEN_BUF_WIDTH * SCREEN_BUF_HEIGHT * sizeof(uint16_t));
+  
+  if (back_buf == nullptr) {
+    LOG_PRINTLN("FAILED!");
+    LOG_PANIC("Framebuffer allocation failed");
+  } else {
+    LOG_PRINTLN("OK");
+  }
+
+  // Create SDL surface from framebuffer
+  // SDL_PIXELFORMAT_RGB565 matches our RGB565 color format
+  // Signature: SDL_CreateSurfaceFrom(width, height, format, pixels, pitch)
+  sdl_surface = SDL_CreateSurfaceFrom(
+    SCREEN_BUF_WIDTH,
+    SCREEN_BUF_HEIGHT,
+    SDL_PIXELFORMAT_RGB565,
+    back_buf,
+    SCREEN_BUF_WIDTH * (int)sizeof(uint16_t)
+  );
+
+  if (!sdl_surface) {
+    LOG_PANIC("SDL_CreateSurfaceFrom failed: %s", SDL_GetError());
+  }
+
+  LOG_PRINTLN("Display: Framebuffer initialized (RGB565)");
+  
+  // Clear framebuffer to black
+  clear(Theme::C_BLACK);
+  present();
+}
+
+void Display_HDC458002C40::present(void) {
+  // Get the window surface and update it with our framebuffer
+  if (sdl_window) {
+    SDL_Surface *window_surface = SDL_GetWindowSurface(sdl_window);
+    if (window_surface) {
+      // Copy our framebuffer directly to the window surface
+      SDL_Rect src_rect = { 0, 0, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT };
+      SDL_Rect dst_rect = { 0, 0, SCREEN_BUF_WIDTH, SCREEN_BUF_HEIGHT };
+      SDL_BlitSurface(sdl_surface, &src_rect, window_surface, &dst_rect);
+      
+      // Update the window
+      if (!SDL_UpdateWindowSurface(sdl_window)) {
+        LOG_PRINT("SDL_UpdateWindowSurface failed: %s\n", SDL_GetError());
+      }
+    }
+  }
+  
+  // Handle window events
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
+      case SDL_EVENT_QUIT:
+      case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        LOG_PRINTLN("Window close requested, exiting...");
+        exit(0);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+#endif // PLATFORM_*
 
 // Clear the framebuffer (optimized with 4-pixel unrolled loop)
 void Display_HDC458002C40::clear(Color color) {

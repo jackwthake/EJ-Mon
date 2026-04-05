@@ -6,6 +6,28 @@
 
 #include "../log/log.hpp"
 
+// Platform-specific timing helpers
+#ifdef PLATFORM_ESP32
+  #include <sys/time.h>
+  #define get_millis() millis()
+#else // PLATFORM_DESKTOP
+  #include <chrono>
+  #include <thread>
+  
+  static auto start_time = std::chrono::high_resolution_clock::now();
+  
+  inline uint32_t millis() {
+    auto elapsed = std::chrono::high_resolution_clock::now() - start_time;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+  }
+  
+  inline void delay(uint32_t ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+  }
+  
+  #define get_millis() millis()
+#endif
+
 Display_HDC458002C40 *display = nullptr;
 GUI gui;
 EngineData engine_data = {
@@ -25,7 +47,7 @@ void gui_task(void *param) {
   constexpr uint32_t FRAME_TIME_MS = 1000 / TARGET_FPS;  // 16ms per frame
   
   for (;;) {
-    uint32_t frame_start = millis();
+    uint32_t frame_start = get_millis();
     
     gui.render(display, engine_data, frame_start / 1000.0f);
 
@@ -37,7 +59,7 @@ void gui_task(void *param) {
     engine_data.coolant_temp = 70 + (int)(30 * (sinf(t * 0.5f + 1.0f) / 2.0f));
     
     // Frame rate limiting: cap at TARGET_FPS
-    uint32_t frame_elapsed = millis() - frame_start;
+    uint32_t frame_elapsed = get_millis() - frame_start;
     if (frame_elapsed < FRAME_TIME_MS) {
       delay(FRAME_TIME_MS - frame_elapsed);
     }
@@ -53,6 +75,8 @@ void can_ingest_task(void *param) {
     // LOG_PRINTLN("CAN Ingest Task Heartbeat"); 
   }
 }
+
+#ifdef PLATFORM_ESP32
 
 void setup(void) {
   LOG_BEGIN();
@@ -97,7 +121,6 @@ void setup(void) {
     LOG_PANIC("Failed to create GUI Task!");
   }
 }
-
 
 void loop() { }
 

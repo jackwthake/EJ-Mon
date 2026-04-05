@@ -6,8 +6,12 @@
 #include <cstdio>
 #include <cmath>
 
-#include <pgmspace.h>
-#include <esp_heap_caps.h>
+#ifdef PLATFORM_ESP32
+  #include <pgmspace.h>
+  #include <esp_heap_caps.h>
+#else
+  #include <cstdlib>
+#endif
 
 #include "../log/log.hpp"
 
@@ -16,13 +20,17 @@ SpriteAtlas::SpriteAtlas() : pixels(nullptr), width(0), height(0) {
 
 SpriteAtlas::~SpriteAtlas() {
   if (pixels) {
-    heap_caps_free(pixels);
+    #ifdef PLATFORM_ESP32
+      heap_caps_free(pixels);
+    #else
+      free(pixels);
+    #endif
     pixels = nullptr;
   }
 }
 
-#ifndef ESP32
-// Simple BMP loader (supports 24-bit and 32-bit BMPs)
+#ifndef PLATFORM_ESP32
+// Simple BMP loader (supports 24-bit and 32-bit BMPs) - Desktop only
 bool SpriteAtlas::load_from_file(const char* filename) {
   FILE* f = fopen(filename, "rb");
   if (!f) {
@@ -106,7 +114,11 @@ bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
 
   // Clean up existing data
   if (pixels) {
-    heap_caps_free(pixels);
+    #ifdef PLATFORM_ESP32
+      heap_caps_free(pixels);
+    #else
+      free(pixels);
+    #endif
     pixels = nullptr;
   }
 
@@ -115,16 +127,26 @@ bool SpriteAtlas::load_from_rgb565(const uint16_t* data, int w, int h) {
   size_t num_pixels = (size_t)w * h;
   size_t data_size = num_pixels * sizeof(uint16_t);
 
-  // Allocate in PSRAM on ESP32-S3 (much larger than internal DRAM)
-  pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-  if (!pixels) {
-    // Fall back to internal RAM if PSRAM not available
-    pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_8BIT);
-  }
+  #ifdef PLATFORM_ESP32
+    // Allocate in PSRAM on ESP32-S3 (much larger than internal DRAM)
+    pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!pixels) {
+      // Fall back to internal RAM if PSRAM not available
+      pixels = (uint16_t*)heap_caps_malloc(data_size, MALLOC_CAP_8BIT);
+    }
+  #else
+    // Standard malloc on desktop
+    pixels = (uint16_t*)malloc(data_size);
+  #endif
+  
   if (!pixels) return false;
 
-  // Copy from PROGMEM
-  memcpy_P(pixels, data, data_size);
+  // Copy data
+  #ifdef PLATFORM_ESP32
+    memcpy_P(pixels, data, data_size);
+  #else
+    memcpy(pixels, data, data_size);
+  #endif
 
   return true;
 }
