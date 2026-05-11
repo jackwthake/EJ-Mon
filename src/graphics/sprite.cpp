@@ -357,14 +357,6 @@ void SpriteAtlas::draw_with_green_sequence(uint16_t* fb, int fb_w, int fb_h,
     green_rgb565[i] = (0 << 11) | (g6 << 5) | 0;
   }
 
-  // Light gray for inactive marks
-  const uint16_t LIGHT_GRAY_RGB565 = ((200 >> 3) << 11) | ((200 >> 2) << 5) | (200 >> 3);
-  // Dimmer green for trailing mark
-  const uint16_t DIM_GREEN_RGB565 = (0 << 11) | (40 << 5) | 0;  // RGB(0, 160, 0) approx
-
-  // Calculate previous index (the one behind the active mark)
-  int prev_index = (active_index - 1 + num_shades) % num_shades;
-
   // Draw sprite
   for (int dy = 0; dy < h; dy++) {
     for (int dx = 0; dx < w; dx++) {
