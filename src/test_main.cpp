@@ -62,7 +62,7 @@ int test_main(int /*argc*/, char* /*argv*/[]) {
 
   // Initialize GUI
   GUI gui;
-  gui.init(gfx);
+  gui.init();
 
   // Open CAN test data file
   FILE* can_file = fopen("test-data/can_data_sample.txt", "r");

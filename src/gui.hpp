@@ -4,9 +4,19 @@
 #include "graphics/sprite.hpp"
 #include "can/can_parser.h"
 
-extern "C" {
-#include <shader-works/renderer.h>
-}
+// Type definitions
+typedef int8_t   i8;
+typedef uint8_t  u8;
+typedef int16_t  i16;
+typedef uint16_t u16;
+typedef int32_t  i32;
+typedef uint32_t u32;
+typedef int64_t  i64;
+typedef uint64_t u64;
+typedef size_t   usize;
+
+typedef float    f32;
+typedef double   f64;
 
 constexpr uint16_t SHIFT_LIGHT_RPM = 5500;  // RPM to start shift light
 
@@ -14,7 +24,7 @@ constexpr uint16_t SHIFT_LIGHT_RPM = 5500;  // RPM to start shift light
 class GUI {
 public:
   // Initialize GUI (can be called once at startup)
-  void init(Graphics* gfx);
+  void init();
 
   // Render the complete UI given engine data and animation time
   void render(Graphics* gfx, const EngineData& data, float time_s);
@@ -45,8 +55,6 @@ private:
   Sprite spr_iat_label;
   Sprite spr_timing_label;
 
-  renderer_t renderer_state;
-
   bool last_frame_above_shift_rpm = false;
 
   // Timing mark animation state
@@ -57,14 +65,8 @@ private:
   float intake_tick_accumulator = 0.0f;  // Accumulates fractional increments
   int active_intake_tick = 0;             // Current active tick (0-4)
 
-  // Cube rotation state (constantly spinning)
-  float cube1_yaw = 0.0f;
-  float cube1_pitch = 0.0f;
-  float cube2_yaw = 0.0f;
-  float cube2_pitch = 0.0f;
-
   // Helper functions for drawing individual components
-  void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
+  void draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data);
   void draw_turbo(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s);
   void draw_intercooler(Graphics* gfx, int cx, int cy, const EngineData& data);

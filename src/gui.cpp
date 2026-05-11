@@ -6,12 +6,6 @@
 #include <cstdio>
 #include <iostream>
 
-extern "C" {
-#include <shader-works/renderer.h>
-#include <shader-works/primitives.h>
-#include <shader-works/maths.h>
-}
-
 //==============================================================================
 // shader-works Color Conversion Functions
 //==============================================================================
@@ -70,7 +64,7 @@ static Color lerp_color(Color c1, Color c2, float t) {
 //==============================================================================
 
 // Draw EJ engine sprite with coolant temperature color and firing order animation
-void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, float time_s) {
+void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data) {
   // Color based on coolant temp: blue (cold) -> green -> yellow -> red (hot)
   // Typical range: 0°C to 120°C
   float temp_normalized = data.coolant_temp / 120.0f;
@@ -116,86 +110,6 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
   atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_timing_anim,
                                   cx - spr_motor_timing_anim.w/2, cy - spr_motor_timing_anim.h/2 + 15,
                                   Theme::BLACK, Theme::GREEN, active_timing_mark, NUM_TIMING_MARKS);
-}
-
-void GUI::draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data) {
-  // Clear buffers
-  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
-    color_buffer[i] = 0x000000;  // Black background
-    depth_buffer[i] = FLT_MAX;
-  }
-
-  // Create camera transform
-  transform_t camera = {0};
-  camera.position = make_float3(0.0f, 0.0f, 0.0f);
-  camera.yaw = 0.0f;
-  camera.pitch = 0.0f;
-  update_camera(&renderer_state, &camera);
-
-  // Enable wireframe mode
-  renderer_state.wireframe_mode = true;
-
-  // Base rotation speed (at 60 FPS, this gives nice continuous motion)
-  const float BASE_SPEED = 0.1f;
-  const float BASE_CUBE_SIZE = 4.0f;
-  const float CUBE_DEPTH = -15.0f;  // Further back to prevent clipping
-
-  // Cube 1: Throttle affects rotation speed and size
-  float throttle_normalized = data.throttle / 100.0f;
-  float throttle_speed = throttle_normalized * 2.0f + 0.5f;  // 0.5x to 2.5x speed
-  float cube1_size = BASE_CUBE_SIZE + throttle_normalized * 2.0f;  // 4.0 to 6.0 units
-  cube1_yaw += BASE_SPEED * throttle_speed * 1.3f;
-  cube1_pitch += BASE_SPEED * throttle_speed * 0.7f;
-
-  model_t cube1 = {0};
-  generate_cube(&cube1, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube1_size, cube1_size, cube1_size));
-  cube1.transform.yaw = cube1_yaw;
-  cube1.transform.pitch = cube1_pitch;
-  render_model(&renderer_state, &camera, &cube1, NULL, 0);
-  delete_model(&cube1);
-
-  // Clear only the depth buffer to prevent clipping between cubes
-  // Keep color buffer so wireframes accumulate
-  for (int i = 0; i < CUBES_DISPLAY_WIDTH * CUBES_DISPLAY_HEIGHT; ++i) {
-    depth_buffer[i] = FLT_MAX;
-  }
-
-  // Cube 2: Load affects rotation speed and size - rotates on both axes differently
-  // Engine load in CAN data ranges from ~20% (idle) to ~130% (full throttle)
-  // Map this to 0.0-1.0 for better visual variation
-  float load_normalized = (data.engine_load - 20.0f) / 110.0f;  // 20-130% -> 0.0-1.0
-  if (load_normalized < 0.0f) load_normalized = 0.0f;
-  if (load_normalized > 1.0f) load_normalized = 1.0f;
-  float load_speed = load_normalized * 2.0f + 0.4f;  // 0.4x to 2.4x speed
-  float cube2_size = BASE_CUBE_SIZE + load_normalized * 2.2f;  // 4.0 to 6.2 units
-  cube2_yaw += BASE_SPEED * load_speed * 0.8f;
-  cube2_pitch += BASE_SPEED * load_speed * 1.5f;
-
-  model_t cube2 = {0};
-  generate_cube(&cube2, make_float3(0.0f, 0.0f, CUBE_DEPTH), make_float3(cube2_size * 0.75f, cube2_size * 0.75f, cube2_size * 0.75f));
-  cube2.transform.yaw = cube2_yaw;
-  cube2.transform.pitch = cube2_pitch;
-  render_model(&renderer_state, &camera, &cube2, NULL, 0);
-  delete_model(&cube2);
-
-  // Blit the color buffer to the framebuffer at (cx, cy)
-  uint16_t* fb = gfx->get_framebuffer();
-  int fb_w = gfx->get_width();
-  int fb_h = gfx->get_height();
-
-  for (int y = 0; y < CUBES_DISPLAY_HEIGHT; ++y) {
-    for (int x = 0; x < CUBES_DISPLAY_WIDTH; ++x) {
-      int screen_x = cx + x - CUBES_DISPLAY_WIDTH / 2;
-      int screen_y = cy + y - CUBES_DISPLAY_HEIGHT / 2;
-
-      if (screen_x >= 0 && screen_x < fb_w && screen_y >= 0 && screen_y < fb_h) {
-        u32 pixel = color_buffer[y * CUBES_DISPLAY_WIDTH + x];
-        // Convert from u32 to RGB565 (already handled by our conversion functions)
-        if (pixel == 0x000000) continue;  // Skip black pixels (background)
-        fb[screen_y * fb_w + screen_x] = (uint16_t)pixel;
-      }
-    }
-  }
 }
 
 // Draw turbo sprite with boost-based color and scaling
@@ -442,7 +356,7 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
 // Public GUI Methods
 //==============================================================================
 
-void GUI::init(Graphics* gfx) {
+void GUI::init() {
   // Load sprite atlas
   if (!atlas.load_from_file("res/atlas.bmp")) {
     fprintf(stderr, "Failed to load sprite atlas!\n");
@@ -486,10 +400,6 @@ void GUI::init(Graphics* gfx) {
   spr_timing_label = { 416, 80, 103, 32 };
 
   printf("GUI sprites initialized\n");
-
-  // Initialize shader-works
-  init_renderer(&renderer_state, CUBES_DISPLAY_WIDTH, CUBES_DISPLAY_HEIGHT, 0, 0, 
-                color_buffer, depth_buffer, 15.f);
 }
 
 static constexpr Color SHIFT_LIGHT_COLORS[] = { 
@@ -497,11 +407,6 @@ static constexpr Color SHIFT_LIGHT_COLORS[] = {
 };
 
 void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
-  // Get framebuffer for sprite drawing
-  uint16_t* fb = gfx->get_framebuffer();
-  int fb_w = gfx->get_width();
-  int fb_h = gfx->get_height();
-
   Color bg_color(0, 0, 20);
 
   if (data.rpm >= 4000 && data.rpm < SHIFT_LIGHT_RPM) {
@@ -537,21 +442,14 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   constexpr int intake_cx = 495;
   constexpr int intake_cy = 120;  // Between intercooler and engine
 
-  constexpr int battery_cx = 820;
-  constexpr int battery_cy = 260;
-  constexpr int cubes_cx = 820;
-  constexpr int cubes_cy = 150;
-
   constexpr int labels_cx = 160;
   constexpr int labels_cy = 180;
-  constexpr int warning_cx = 820;
-  constexpr int warning_cy = 20;
 
   draw_top_rpm_bar(gfx, data);
 
   // Draw all components
   draw_intake_manifold(gfx, intake_cx, intake_cy, data);
-  draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
+  draw_ej_engine(gfx, engine_cx, engine_cy, data);
   draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
