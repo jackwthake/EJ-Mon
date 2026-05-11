@@ -32,6 +32,7 @@ private:
   Sprite spr_turbo_housing;
   Sprite spr_intercooler;
   Sprite spr_motor_block;
+  Sprite spr_motor_timing_anim;
   Sprite spr_battery;
   Sprite spr_cam_gear;
   Sprite spr_intake_manifold;
@@ -40,9 +41,9 @@ private:
 
   // label sprites
   Sprite spr_rpm_label;
-  Sprite spr_boost_label;
   Sprite spr_temp_label;
-  Sprite spr_battery_label;
+  Sprite spr_iat_label;
+  Sprite spr_timing_label;
 
   renderer_t renderer_state;
 

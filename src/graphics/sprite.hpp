@@ -80,7 +80,7 @@ private:
 
   // Digit sprites for numbers 0-9 and symbols
   static constexpr int DIGIT_WIDTH = 48;
-  static constexpr int DIGIT_HEIGHT = 80;
+  static constexpr int DIGIT_HEIGHT = 81;
   static constexpr int NUM_DIGITS = 14;  // 0-9, minus, minus decimal point and percentage
   Sprite digit_sprites[NUM_DIGITS] = {
     {0, 432, DIGIT_WIDTH, DIGIT_HEIGHT},     // '0'

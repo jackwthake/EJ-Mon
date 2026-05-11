@@ -111,9 +111,11 @@ void GUI::draw_ej_engine(Graphics* gfx, int cx, int cy, const EngineData& data, 
   int fb_w = gfx->get_width();
   int fb_h = gfx->get_height();
 
-  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_block,
-                                  cx - spr_motor_block.w/2, cy - spr_motor_block.h/2,
-                                  coolant_color, Theme::GREEN, active_timing_mark, NUM_TIMING_MARKS);
+  atlas.draw_with_color(fb, fb_w, fb_h, spr_motor_block, cx - spr_motor_block.w/2, cy - spr_motor_block.h/2, coolant_color);
+
+  atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_motor_timing_anim,
+                                  cx - spr_motor_timing_anim.w/2, cy - spr_motor_timing_anim.h/2 + 15,
+                                  Theme::BLACK, Theme::GREEN, active_timing_mark, NUM_TIMING_MARKS);
 }
 
 void GUI::draw_cubes(Graphics* gfx, int cx, int cy, const EngineData& data) {
@@ -255,7 +257,7 @@ void GUI::draw_intake_manifold(Graphics* gfx, int cx, int cy, const EngineData& 
   int fb_h = gfx->get_height();
 
   atlas.draw_with_green_sequence(fb, fb_w, fb_h, spr_intake_manifold,
-                                  cx - spr_intake_manifold.w/2, cy - spr_intake_manifold.h/2,
+                                  cx - (spr_intake_manifold.w/2) - 1, cy - spr_intake_manifold.h/2,
                                   Theme::BLACK, tick_color, active_intake_tick, NUM_TICKS);
 }
 
@@ -314,16 +316,16 @@ void GUI::draw_cam_gears(Graphics* gfx, int engine_cx, int engine_cy, const Engi
   // Cam gear positions relative to engine sprite (centers)
   // Positions given: (43, 39), (348, 49), (42, 134), (348, 134)
   int gear1_x = engine_left + 40;
-  int gear1_y = engine_top + 41;
+  int gear1_y = engine_top + 84;
 
   int gear2_x = engine_left + 345;
-  int gear2_y = engine_top + 41;
+  int gear2_y = engine_top + 84;
 
   int gear3_x = engine_left + 40;
-  int gear3_y = engine_top + 137;
+  int gear3_y = engine_top + 179;
 
   int gear4_x = engine_left + 345;
-  int gear4_y = engine_top + 137;
+  int gear4_y = engine_top + 179;
 
   // Draw all 4 cam gears rotating at the same speed
   atlas.draw_rotated(fb, fb_w, fb_h, spr_cam_gear, gear1_x, gear1_y, angle, true);
@@ -413,6 +415,27 @@ void GUI::draw_engine_param_labels(Graphics* gfx, int cx, int cy, const EngineDa
   // draw °
   atlas.draw_symbol_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
                               label_x + 144, cy, (unsigned char)248, Theme::CYAN);
+  
+  const int right_off = 730;
+
+  // draw timing advance
+  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+              spr_timing_label, label_x + right_off, cy - 40, true);
+  
+  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x + right_off, cy - 128, data.timing_adv, 2, Theme::WHITE);
+
+  // Draw Temp label
+  atlas.draw(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+              spr_iat_label, label_x + right_off, cy + 86, true);
+  
+  // convert to fahrenheit for display
+  temp_display = (int)(data.intake_temp * 9.0f / 5.0f + 32.0f);
+  atlas.draw_number_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x + right_off, cy, temp_display, 3, Theme::CYAN);
+  // draw °
+  atlas.draw_symbol_from_atlas(gfx->get_framebuffer(), gfx->get_width(), gfx->get_height(),
+                              label_x + right_off + 144, cy, (unsigned char)248, Theme::CYAN);
 }
 
 //==============================================================================
@@ -435,16 +458,18 @@ void GUI::init(Graphics* gfx) {
   spr_turbo_housing = {128, 0, 124, 92};
 
   // Intercooler: (0, 128) to (319, 223) = 320x96
-  spr_intercooler = {256, 64, 151, 64};
+  spr_intercooler = {256, 64, 153, 64};
 
   // Engine: (0, 224) to (383, 415) = 384x192
-  spr_motor_block = {0, 176, 384, 192};
+  spr_motor_block = {0, 135, 386, 230};
+
+  spr_motor_timing_anim = { 610, 0, 368, 161 };
 
   // Cam gear: (256, 0) to (319, 63) = 64x64
-  spr_cam_gear = {256, 0, 64, 64};
+  spr_cam_gear = {256, 1, 64, 64};
 
   // Intake manifold: (0, 128) to (248, 201) = 248x73
-  spr_intake_manifold = {0, 96, 248, 73};
+  spr_intake_manifold = {417, 257, 228, 53};
 
   // Knock warning: (0, 368) to (179, 428) = 179x60
   spr_knock_warning = {416, 176, 64, 64};
@@ -452,13 +477,13 @@ void GUI::init(Graphics* gfx) {
   // Overboost warning: (192, 368) to (477, 428) = 285x60
   spr_overboost_warning = {480, 176, 64, 64};
 
-  spr_rpm_label = {416, 0, 128, 32};
+  spr_rpm_label = {416, 0, 97, 32};
 
-  spr_boost_label = {416, 64, 224, 32};
+  spr_temp_label = {416, 128, 179, 32};
 
-  spr_temp_label = {416, 128, 252, 32};
+  spr_iat_label = { 416, 43, 69, 32 };
 
-  spr_battery_label = {416, 192, 248, 32};
+  spr_timing_label = { 416, 80, 103, 32 };
 
   printf("GUI sprites initialized\n");
 
@@ -504,13 +529,13 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   // Layout centers (for 960x320 screen)
   // Wabi Sabi ui design lol 
   constexpr int engine_cx = 500;
-  constexpr int engine_cy = 230;
+  constexpr int engine_cy = 205;
   constexpr int turbo_cx = 336;
   constexpr int turbo_cy = 80;
-  constexpr int ic_cx = 500;
+  constexpr int ic_cx = 495;
   constexpr int ic_cy = 70;
-  constexpr int intake_cx = 497;
-  constexpr int intake_cy = 130;  // Between intercooler and engine
+  constexpr int intake_cx = 495;
+  constexpr int intake_cy = 120;  // Between intercooler and engine
 
   constexpr int battery_cx = 820;
   constexpr int battery_cy = 260;
@@ -528,18 +553,7 @@ void GUI::render(Graphics* gfx, const EngineData& data, float time_s) {
   draw_intake_manifold(gfx, intake_cx, intake_cy, data);
   draw_ej_engine(gfx, engine_cx, engine_cy, data, time_s);
   draw_cam_gears(gfx, engine_cx, engine_cy, data, time_s);
-  draw_cubes(gfx, cubes_cx, cubes_cy, data);
   draw_turbo(gfx, turbo_cx, turbo_cy, data, time_s);
   draw_intercooler(gfx, ic_cx, ic_cy, data);
-  draw_battery(gfx, battery_cx, battery_cy, data);
   draw_engine_param_labels(gfx, labels_cx, labels_cy, data);
-
-  // Draw warning messages on top of everything
-  if (data.knock_detected) {
-    atlas.draw(fb, fb_w, fb_h, spr_knock_warning, warning_cx - 72, warning_cy, true);
-  }
-
-  if (data.overboost) {
-    atlas.draw(fb, fb_w, fb_h, spr_overboost_warning, warning_cx + 12, warning_cy, true);
-  }
 }
